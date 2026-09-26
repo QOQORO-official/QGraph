@@ -56,7 +56,7 @@ jobs:
       - name: Assemble the static site
         run: |
           mkdir -p _site
-          cp -r web/index.html web/js web/styles web/stencils web/resources _site/
+          cp -r web/index.html web/favicon.svg web/manifest.webmanifest web/js web/styles web/stencils _site/
           touch _site/.nojekyll
 
       - name: Stamp the build version

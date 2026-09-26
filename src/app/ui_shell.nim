@@ -1,144 +1,75 @@
-# Included from editorui.nim: containers, layout, popups, status.
+# Included from editorui.nim: the shell (top bar, rail, docks, stage, tab
+# bar, sheet), popups and the status line.
 
-proc createDivs(ui: EditorUi) =
-  ui.menubarContainer = div0("geMenubarContainer")
-  ui.toolbarContainer = div0("geToolbarContainer")
-  ui.sidebarContainer = div0("geSidebarContainer")
-  ui.formatContainer = div0("geSidebarContainer geFormatContainer")
-  ui.diagramContainer = div0("geDiagramContainer")
-  ui.footerContainer = div0("geFooterContainer")
-  ui.hsplit = div0("geHsplit")
-  ui.hsplit.setAttribute("title", "Collapse/Expand")
+proc createShell(ui: EditorUi) =
+  let root = ui.container
+  ui.topbar = el("header", "qg-topbar")
+  ui.workspace = div0("qg-workspace")
+  ui.rail = el("nav", "qg-rail")
+  ui.rail.setAttribute("aria-label", "Tools")
+  ui.leftDock = el("aside", "qg-dock qg-dock-left")
+  ui.stage = el("main", "qg-stage")
+  ui.rightDock = el("aside", "qg-dock qg-dock-right")
+  # The canvas view owns everything inside this element.
+  ui.diagram = div0("qg-canvas")
+  ui.stage.appendChild(ui.diagram)
+  ui.floatLayer = div0("qg-floatlayer")
+  ui.stage.appendChild(ui.floatLayer)
+  for c in [ui.rail, ui.leftDock, ui.stage, ui.rightDock]: ui.workspace.appendChild(c)
+  root.appendChild(ui.topbar)
+  root.appendChild(ui.workspace)
 
-  # Static styles, matching the classic container geometry.
-  ui.menubarContainer.style("top", "0px")
-  ui.menubarContainer.style("left", "0px")
-  ui.menubarContainer.style("right", "0px")
-  ui.toolbarContainer.style("left", "0px")
-  ui.toolbarContainer.style("right", "0px")
-  ui.sidebarContainer.style("left", "0px")
-  ui.formatContainer.style("right", "0px")
-  ui.formatContainer.style("zIndex", "1")
-  ui.diagramContainer.style("right", px(ui.formatWidth))
-  ui.footerContainer.style("left", "0px")
-  ui.footerContainer.style("right", "0px")
-  ui.footerContainer.style("bottom", "0px")
-  ui.hsplit.style("width", px(ui.splitSize))
-  ui.hsplit.style("touchAction", "none")
+  ui.tabbar = el("nav", "qg-tabbar")
+  ui.tabbar.setAttribute("aria-label", "Editor sections")
+  root.appendChild(ui.tabbar)
 
-  # The canvas view owns everything inside the diagram container.
-  ui.diagram = createElement("div")
-  ui.diagramContainer.appendChild(ui.diagram)
-
-  for c in [ui.menubarContainer, ui.sidebarContainer, ui.formatContainer, ui.footerContainer,
-            ui.diagramContainer, ui.toolbarContainer, ui.hsplit]:
-    ui.container.appendChild(c)
+  ui.sheetBackdrop = div0("qg-sheet-backdrop")
+  ui.sheet = el("section", "qg-sheet")
+  ui.sheet.setAttribute("role", "dialog")
+  let sheetHead = el("header", "qg-sheet-head")
+  sheetHead.appendChild(div0("qg-sheet-grabber"))
+  ui.sheetTitle = el("h2", "qg-sheet-title")
+  sheetHead.appendChild(ui.sheetTitle)
+  let sheetClose = iconButton("close", "Close", "qg-sheet-close")
+  sheetClose.on("click", proc(e: Event) = ui.closeSheet())
+  sheetHead.appendChild(sheetClose)
+  ui.sheetBody = div0("qg-sheet-body")
+  ui.sheet.appendChild(sheetHead)
+  ui.sheet.appendChild(ui.sheetBody)
+  root.appendChild(ui.sheetBackdrop)
+  root.appendChild(ui.sheet)
+  ui.sheetBackdrop.on("click", proc(e: Event) = ui.closeSheet())
+  ui.installSheetGestures(sheetHead)
 
   ui.fileInput = createElement("input")
   ui.fileInput.typ = "file"
   ui.fileInput.setProp("accept", ".json,.qochart,.xml,application/json,application/xml,text/xml")
   ui.fileInput.hidden = true
-  ui.container.appendChild(ui.fileInput)
+  root.appendChild(ui.fileInput)
 
-  ui.toastElement = div0("geToast")
+  ui.toastElement = div0("qg-toast")
+  ui.toastElement.setAttribute("role", "status")
   ui.toastElement.hidden = true
-  ui.container.appendChild(ui.toastElement)
-
-proc refresh*(ui: EditorUi, sizeDidChange = true) =
-  var w = ui.container.getNum("clientWidth")
-  if same(ui.container, body):
-    w = body.getNum("clientWidth")
-    if w == 0: w = documentElement.getNum("clientWidth")
-  let effHsplitPosition = max(0.0, min(ui.hsplitPosition, w - ui.splitSize - 20))
-  let tmp = ui.menubarHeight + ui.toolbarHeight + 1
-  let fw = ui.formatWidth
-
-  ui.menubarContainer.style("height", px(ui.menubarHeight))
-  ui.toolbarContainer.style("top", px(ui.menubarHeight))
-  ui.toolbarContainer.style("height", px(ui.toolbarHeight))
-  ui.sidebarContainer.style("top", px(tmp))
-  ui.sidebarContainer.style("width", px(effHsplitPosition))
-  ui.formatContainer.style("top", px(tmp))
-  ui.formatContainer.style("width", px(fw))
-  ui.formatContainer.style("display", if fw == 0: "none" else: "")
-  ui.diagramContainer.style("left", px(effHsplitPosition + ui.splitSize))
-  ui.diagramContainer.style("top", px(tmp))
-  ui.footerContainer.style("height", px(ui.footerHeight))
-  ui.hsplit.style("top", px(tmp))
-  ui.hsplit.style("bottom", px(ui.footerHeight))
-  ui.hsplit.style("left", px(effHsplitPosition))
-  ui.footerContainer.style("display", if ui.footerHeight == 0: "none" else: "")
-  ui.diagramContainer.style("right", px(fw))
-  ui.sidebarContainer.style("bottom", px(ui.footerHeight))
-  ui.formatContainer.style("bottom", px(ui.footerHeight))
-  ui.diagramContainer.style("bottom", px(ui.footerHeight))
-  if sizeDidChange and ui.editor != nil: ui.graph.render()
-
-proc addSplitHandler(ui: EditorUi, elt: Node, onChange: proc(value: float64)) =
-  ## Drag to resize, click to collapse/expand -- as in the classic shell.
-  var start = NaN
-  var initial = NaN
-  var ignoreClick = true
-  var last = NaN
-  proc getValue(): float64 =
-    let v = jsParseFloat(elt.get2("style", "left").toStr)
-    if v != v: 0.0 else: trunc(v)
-  proc moveHandler(e: Event) =
-    if start == start:
-      onChange(max(0.0, initial + (e.clientX - start)))
-      e.preventDefault()
-      if initial != getValue():
-        ignoreClick = true
-        last = NaN
-  elt.on("pointerdown", proc(e: Event) =
-    start = e.clientX
-    initial = getValue()
-    ignoreClick = false
-    e.preventDefault())
-  elt.on("click", proc(e: Event) =
-    if not ignoreClick and ui.hsplitClickEnabled:
-      let next = if last == last: last else: 0.0
-      last = getValue()
-      onChange(next)
-      e.preventDefault())
-  document.on("pointermove", moveHandler)
-  document.on("pointerup", proc(e: Event) =
-    moveHandler(e)
-    initial = NaN
-    start = NaN)
-
-proc togglePane*(ui: EditorUi, name: string) =
-  if name == "sidebar":
-    if ui.hsplitPosition > 0:
-      ui.lastHsplitPosition = ui.hsplitPosition
-      ui.hsplitPosition = 0
-    else:
-      ui.hsplitPosition = if ui.lastHsplitPosition != 0: ui.lastHsplitPosition else: 212
-  else:
-    ui.formatWidth = if ui.formatWidth > 0: 0 else: 240
-  ui.refresh()
+  root.appendChild(ui.toastElement)
 
 # ------------------------------------------------------------------ popups --
 
 proc addMenuItems(ui: EditorUi, popup: Node, list: openArray[MenuEntry]): Node {.discardable.} =
-  ## Fills a popup with action names, separators or literal entries.
+  ## Fills a menu with action names, separators or literal entries.
   var syncs = ui.popupSyncs.getOrDefault(popup.id, @[])
   for entry in list:
     case entry.kind
     of ekSeparator:
-      popup.appendChild(createElement("hr"))
+      popup.appendChild(el("hr", "qg-menu-sep"))
     of ekNumber:
-      let numberRow = el("label", "geMenuInputRow")
-      numberRow.cssText = "display:flex;align-items:center;gap:12px;padding:7px 12px;white-space:nowrap;"
+      let numberRow = el("label", "qg-menu-input")
       let numberLabel = createElement("span")
       numberLabel.text = entry.label
-      numberLabel.style("flex", "1")
-      let numberInput = createElement("input")
+      let numberInput = el("input", "qg-input qg-input-sm")
       numberInput.typ = "number"
       numberInput.setProp("min", entry.min)
       numberInput.setProp("max", entry.max)
       numberInput.setProp("step", entry.step)
-      numberInput.style("width", "72px")
       let valueFn = entry.value
       let sync = proc() =
         if not same(activeElement(), numberInput): numberInput.value = jsStr(valueFn())
@@ -159,86 +90,85 @@ proc addMenuItems(ui: EditorUi, popup: Node, list: openArray[MenuEntry]): Node {
       if entry.kind == ekAction and action == nil: continue
       let label = if action != nil: action.label else: entry.label
       let shortcut = if action != nil: action.shortcut else: entry.shortcut
-      let item = el("button", "geMenuItem")
-      let text = createElement("span")
+      let item = el("button", "qg-menu-item")
+      item.typ = "button"
+      let text = el("span", "qg-menu-label")
       if action != nil and action.checked != nil:
-        let check = el("input", "geMenuCheckbox")
-        check.typ = "checkbox"
-        check.setProp("tabIndex", -1)
-        check.setAttribute("aria-hidden", "true")
-        check.on("click", proc(e: Event) = e.preventDefault())
-        text.appendChild(check)
-        text.appendChild(createTextNode(label))
+        let check = el("span", "qg-menu-check")
+        check.html = iconMarkup("check", 16)
+        item.appendChild(check)
         let checked = action.checked
-        let sync = proc() = check.checked = checked()
+        let sync = proc() = item.toggleClass("is-checked", checked())
         sync()
         syncs.add sync
-      else:
-        text.text = label
-      let keys = createElement("kbd")
-      keys.text = shortcut
+      text.text = label
       item.appendChild(text)
-      item.appendChild(keys)
+      if shortcut.len > 0:
+        let keys = el("kbd", "qg-kbd")
+        keys.text = shortcut
+        item.appendChild(keys)
       let name = if action != nil: action.name else: ""
       let handler = entry.handler
       item.on("click", proc(e: Event) =
         e.stopPropagation()
         ui.closeMenus()
         ui.hideContextMenu()
+        if ui.layout == lmPhone: ui.closeSheet()
         if name.len > 0: ui.run(name)
         elif handler != nil: handler())
       popup.appendChild(item)
   ui.popupSyncs[popup.id] = syncs
   popup
 
-proc attachDropdown(ui: EditorUi, trigger: Node, list: openArray[MenuEntry]): Node =
-  let popup = div0("geMenuDropdown")
+proc placePopover(popup, anchor: Node, above = false) =
+  let r = rect(anchor)
+  popup.style("left", px(max(8.0, r.left)))
+  popup.style("top", px(r.bottom + 6))
+  popup.hidden = false
+  let p = rect(popup)
+  let innerWidth = window.getNum("innerWidth")
+  let innerHeight = window.getNum("innerHeight")
+  if p.right > innerWidth - 8: popup.style("left", px(max(8.0, innerWidth - p.width - 8)))
+  if above or (p.bottom > innerHeight - 8 and r.top > p.height + 14):
+    popup.style("top", px(max(8.0, r.top - p.height - 6)))
+
+proc attachDropdown(ui: EditorUi, trigger: Node, list: openArray[MenuEntry], above = false): Node =
+  let popup = div0("qg-popover qg-menu")
+  popup.setAttribute("role", "menu")
   popup.hidden = true
   ui.menuPopups.add popup
   ui.menuTriggers[popup.id] = trigger
   ui.addMenuItems(popup, list)
+  body.appendChild(popup)
+  trigger.setAttribute("aria-haspopup", "menu")
   trigger.on("click", proc(e: Event) =
     e.stopPropagation()
     let wasOpen = not popup.hidden
     ui.closeMenus()
     if not wasOpen:
-      # Portal the popup to the body: toolbar containers use overflow:hidden,
-      # which clips an absolutely positioned descendant whatever its z-index.
-      body.appendChild(popup)
       for sync in ui.popupSyncs.getOrDefault(popup.id, @[]): sync()
-      let triggerRect = rect(trigger)
-      popup.style("left", px(max(4.0, triggerRect.left)))
-      popup.style("top", px(triggerRect.bottom))
-      popup.hidden = false
-      trigger.addClass("geMenuActive")
-      # Keep the menu inside the viewport; open it above a trigger near the
-      # bottom edge when there is more room there.
-      let r = rect(popup)
-      let innerWidth = window.getNum("innerWidth")
-      let innerHeight = window.getNum("innerHeight")
-      if r.right > innerWidth - 4:
-        popup.style("left", px(max(4.0, innerWidth - r.width - 4)))
-      if r.bottom > innerHeight - 4 and triggerRect.top > r.height + 4:
-        popup.style("top", px(max(4.0, triggerRect.top - r.height))))
+      trigger.addClass("is-active")
+      placePopover(popup, trigger, above))
   popup
 
 proc closeMenus(ui: EditorUi) =
   for popup in ui.menuPopups:
     popup.hidden = true
     let trigger = ui.menuTriggers.getOrDefault(popup.id, nilNode)
-    if not trigger.isNil: trigger.removeClass("geMenuActive")
+    if not trigger.isNil: trigger.removeClass("is-active")
+
+# ------------------------------------------------------------ context menu --
 
 proc buildContextMenu(ui: EditorUi) =
-  ui.contextMenu = div0("geContextMenu")
+  ui.contextMenu = div0("qg-popover qg-menu qg-context")
+  ui.contextMenu.setAttribute("role", "menu")
   ui.contextMenu.hidden = true
   body.appendChild(ui.contextMenu)
-  ui.contextMenuBaseEntries = @["delete", "-", "cut", "copy", "-", "duplicate", "setBookmark", "-",
+  ui.contextMenuBaseEntries = @["delete", "-", "cut", "copy", "-", "duplicate", "addToScratchpad", "setBookmark", "-",
     "setDefaultStyle", "-", "toFront", "toBack", "-",
     "editStyle", "editData", "editLink", "editImage"]
 
-proc showContextMenu(ui: EditorUi, data: Val) =
-  let point = data["point"]
-  ui.contextPoint = if point.isObj and truthy(point["world"]): point["world"] else: nil
+proc fillContextMenu(ui: EditorUi) =
   let tableCell = ui.graph.call("getSelectedTableCell")
   ui.contextMenu.dropChildren()
   ui.popupSyncs.del(ui.contextMenu.id)
@@ -249,6 +179,17 @@ proc showContextMenu(ui: EditorUi, data: Val) =
       "delete", "cut", "copy", "-", "editStyle", "editLink"]
     else: ui.contextMenuBaseEntries
   ui.addMenuItems(ui.contextMenu, entries(list))
+
+proc showContextMenu(ui: EditorUi, data: Val) =
+  let point = data["point"]
+  ui.contextPoint = if point.isObj and truthy(point["world"]): point["world"] else: nil
+  ui.fillContextMenu()
+  if ui.layout == lmPhone:
+    # An action sheet on phones.
+    ui.contextMenu.hidden = false
+    ui.openPanel("context")
+    return
+  if not same(ui.contextMenu.getNode("parentNode"), body): body.appendChild(ui.contextMenu)
   ui.contextMenu.hidden = false
   let width = ui.contextMenu.getNum("offsetWidth")
   let height = ui.contextMenu.getNum("offsetHeight")
@@ -258,91 +199,218 @@ proc showContextMenu(ui: EditorUi, data: Val) =
   ui.contextMenu.style("top", px(max(4.0, min(num(data["clientY"]), innerHeight - height - 4))))
 
 proc hideContextMenu(ui: EditorUi) =
-  if not ui.contextMenu.isNil: ui.contextMenu.hidden = true
+  if not ui.contextMenu.isNil and ui.layout != lmPhone: ui.contextMenu.hidden = true
 
 # ------------------------------------------------------------------ status --
 
 proc setStatusText(ui: EditorUi, value: string) =
-  if not ui.statusContainer.isNil: ui.statusContainer.text = value
+  if not ui.statusLeft.isNil and value.len > 0: ui.statusLeft.text = value
 
 proc updateStatus*(ui: EditorUi, stats: Val = nil) =
   let s = if stats != nil: stats elif ui.editor != nil: ui.graph.stats else: nil
   if ui.statusRight.isNil or ui.editor == nil: return
-  var text = jsStr(jsRound(ui.graph.zoom * 100)) & "%  •  SVG objects: 0"
+  let zoom = jsStr(jsRound(ui.graph.zoom * 100)) & "%"
+  if not ui.zoomLabel.isNil: ui.zoomLabel.text = zoom
+  var text = ""
   if s != nil and s.isObj:
     let memory = num(s["pixelWidth"]) * num(s["pixelHeight"]) * 4 / (1024 * 1024)
-    text.add "  •  " & (if truthy(s["backend"]): str(s["backend"]) else: "canvas").toUpperAscii()
-    text.add(if s["realtime"].isTrue: " realtime rAF" elif s["worker"].isTrue: " + Worker" else: " main thread")
-    text.add "  •  " & valStr(s["visible"]) & "/" & valStr(s["total"]) & " visible"
-    text.add "  •  " & toFixed(memory, 1) & " MB framebuffer"
-    text.add "  •  " & valStr(s["renderMs"]) & " ms"
+    text.add (if truthy(s["backend"]): str(s["backend"]) else: "canvas").toUpperAscii()
+    if s["realtime"].isTrue: text.add " · realtime"
+    elif s["worker"].isTrue:
+      let bands = if truthy(s["bands"]): int(num(s["bands"])) else: 1
+      text.add " · " & $bands & (if bands == 1: " worker" else: " workers")
+    else: text.add " · main thread"
+    text.add " · " & valStr(s["visible"]) & "/" & valStr(s["total"]) & " visible"
+    text.add " · " & toFixed(memory, 1) & " MB"
+    text.add " · " & valStr(s["renderMs"]) & " ms"
   ui.statusRight.text = text
 
 proc toast*(ui: EditorUi, message: string) =
   clearTimeout(ui.toastTimer)
   ui.toastElement.text = message
   ui.toastElement.hidden = false
+  ui.toastElement.addClass("is-visible")
   ui.toastTimer = setTimeout(2200, proc() =
     ui.toastTimer = 0
+    ui.toastElement.removeClass("is-visible")
     ui.toastElement.hidden = true)
 
+proc dialogShell(ui: EditorUi, width: string, cls = "qg-dialog"): (Node, Node) =
+  let backdrop = div0("qg-dialog-backdrop")
+  let dialog = div0(cls)
+  dialog.setAttribute("role", "dialog")
+  if width.len > 0: dialog.style("width", width)
+  backdrop.appendChild(dialog)
+  (backdrop, dialog)
+
 proc showDialog*(ui: EditorUi, title, message: string) =
-  let backdrop = div0("geDialogBackdrop")
-  let dialog = div0("geDialog")
-  let heading = createElement("h2")
+  let (backdrop, dialog) = ui.dialogShell("")
+  let heading = el("h2", "qg-dialog-title")
   heading.text = title
-  let text = createElement("p")
+  let text = el("p", "qg-dialog-text")
   text.text = message
-  let close = el("button", "geBtn gePrimaryBtn")
-  close.style("float", "right")
-  close.text = "Close"
+  let footer = div0("qg-dialog-actions")
+  let close = textButton("Close", "qg-btn qg-btn-primary")
   close.on("click", proc(e: Event) = backdrop.dropTree())
+  footer.appendChild(close)
   dialog.appendChild(heading)
   dialog.appendChild(text)
-  dialog.appendChild(close)
-  backdrop.appendChild(dialog)
+  dialog.appendChild(footer)
   body.appendChild(backdrop)
 
 # ------------------------------------------------------------------- build --
 
-proc buildFooter(ui: EditorUi) =
-  ui.statusLeft = createElement("span")
-  ui.statusLeft.text = "Ready"
-  ui.footerContainer.appendChild(ui.statusLeft)
-  ui.statusRight = el("span", "geFooterRight")
-  ui.footerContainer.appendChild(ui.statusRight)
-
 proc buildMenus(ui: EditorUi, container: Node)
-proc buildToolbar(ui: EditorUi, container: Node)
-proc buildSidebar(ui: EditorUi, container: Node)
+proc buildMenuPanel(ui: EditorUi)
+proc buildToolbar(ui: EditorUi)
+proc buildSidebar(ui: EditorUi)
 proc buildFormat(ui: EditorUi)
+proc buildWindows(ui: EditorUi)
+
+proc buildTopbar(ui: EditorUi) =
+  let left = div0("qg-topbar-start")
+  let menuButton = iconButton("menu", "Menu", "qg-only-phone")
+  menuButton.on("click", proc(e: Event) = ui.openPanel("menu"))
+  left.appendChild(menuButton)
+  let brand = div0("qg-brand")
+  let mark = div0("qg-brand-mark")
+  mark.html = iconMarkup("logo", 18)
+  brand.appendChild(mark)
+  let word = el("span", "qg-brand-name")
+  word.text = "QGraph"
+  brand.appendChild(word)
+  left.appendChild(brand)
+  ui.docName = el("input", "qg-docname")
+  ui.docName.typ = "text"
+  ui.docName.setAttribute("aria-label", "Document name")
+  ui.docName.setProp("spellcheck", false)
+  ui.docName.value = "Untitled diagram"
+  ui.docName.on("change", proc(e: Event) =
+    var name = jsTrim(ui.docName.value)
+    if name.len == 0: name = "Untitled diagram"
+    ui.docName.value = name
+    ui.editor.filename = name & ".json")
+  ui.docName.on("keydown", proc(e: Event) =
+    if e.key == "Enter": ui.docName.blur()
+    e.stopPropagation())
+  left.appendChild(ui.docName)
+  ui.topbar.appendChild(left)
+
+  ui.menubar = el("nav", "qg-menubar")
+  ui.menubar.setAttribute("aria-label", "Menus")
+  ui.buildMenus(ui.menubar)
+  ui.topbar.appendChild(ui.menubar)
+
+  let right = div0("qg-topbar-end")
+  let undo = iconButton("undo", "Undo (Ctrl+Z)")
+  undo.on("click", proc(e: Event) = ui.run("undo"))
+  let redo = iconButton("redo", "Redo (Ctrl+Y)")
+  redo.on("click", proc(e: Event) = ui.run("redo"))
+  right.appendChild(undo)
+  right.appendChild(redo)
+  right.appendChild(div0("qg-divider qg-hide-phone"))
+  ui.themeButton = iconButton("moon", "Dark theme")
+  ui.themeButton.on("click", proc(e: Event) = ui.setTheme(if ui.theme == "dark": "light" else: "dark"))
+  right.appendChild(ui.themeButton)
+  ui.inspectorToggle = iconButton("panelRight", "Inspector", "qg-hide-phone")
+  ui.inspectorToggle.on("click", proc(e: Event) = ui.togglePane("inspector"))
+  right.appendChild(ui.inspectorToggle)
+  let exportButton = textButton("Export", "qg-btn qg-btn-primary qg-hide-phone", "export")
+  discard ui.attachDropdown(exportButton, entries(["exportPng", "download", "-", "save", "saveAs", "-", "print"]))
+  right.appendChild(exportButton)
+  let more = iconButton("more", "More", "qg-only-phone")
+  more.on("click", proc(e: Event) = ui.openPanel("menu"))
+  right.appendChild(more)
+  ui.topbar.appendChild(right)
+  ui.setTheme(ui.theme)
+
+proc railButton(ui: EditorUi, key, iconName, title: string, handler: proc()): Node {.discardable.} =
+  result = iconButton(iconName, title, "qg-rail-btn")
+  result.setData("tool", key)
+  result.on("click", proc(e: Event) = handler())
+  ui.railButtons[key] = result
+  ui.rail.appendChild(result)
+
+proc buildRail(ui: EditorUi) =
+  ui.railButton("shapes", "shapes", "Shapes", proc() = ui.togglePane("sidebar"))
+  ui.railButton("blocks", "star", "My Blocks", proc() =
+    ui.openPanel("library")
+    if ui.sidebar.setCategory != nil: ui.sidebar.setCategory("saved"))
+  ui.rail.appendChild(div0("qg-rail-sep"))
+  ui.railButton("text", "text", "Text", proc() = discard ui.editor.addAtCenter("text"))
+  ui.railButton("note", "note", "Sticky note", proc() = discard ui.editor.addAtCenter("note"))
+  ui.railButton("table", "table", "Table", proc() = ui.run("insertTable"))
+  ui.railButton("media", "image", "Image or video", proc() = ui.run("image"))
+  ui.railButton("html", "code", "HTML block", proc() = ui.run("insertHtml"))
+  ui.rail.appendChild(div0("qg-rail-spacer"))
+  ui.railButton("layers", "layers", "Layers", proc() = ui.run("layers"))
+  ui.railButton("outline", "map", "Outline", proc() = ui.run("outline"))
+  ui.railButton("page", "page", "Page setup", proc() = ui.run("pageSetup"))
+  ui.railButton("help", "help", "About", proc() = ui.run("about"))
+
+proc tabButton(ui: EditorUi, key, iconName, label: string, handler: proc()) =
+  let b = el("button", "qg-tab")
+  b.typ = "button"
+  b.setData("tab", key)
+  b.appendChild(icon(iconName, 22))
+  let t = el("span", "qg-tab-label")
+  t.text = label
+  b.appendChild(t)
+  b.on("click", proc(e: Event) = handler())
+  ui.tabButtons[key] = b
+  ui.tabbar.appendChild(b)
+
+proc buildTabbar(ui: EditorUi) =
+  proc toggle(key: string, open: proc()): proc() =
+    result = proc() =
+      let active = ui.tabButtons[key].matches(".is-active")
+      if ui.sheetOpen and active: ui.closeSheet() else: open()
+  ui.tabButton("shapes", "shapes", "Shapes", toggle("shapes", proc() = ui.openPanel("library")))
+  ui.tabButton("style", "palette", "Style", toggle("style", proc() = ui.openPanel("inspector", "style")))
+  ui.tabButton("text", "text", "Text", toggle("text", proc() = ui.openPanel("inspector", "text")))
+  ui.tabButton("arrange", "arrange", "Arrange", toggle("arrange", proc() = ui.openPanel("inspector", "arrange")))
+  ui.tabButton("more", "more", "More", toggle("more", proc() = ui.openPanel("menu")))
+
+proc buildStatus(ui: EditorUi) =
+  ui.statusChip = div0("qg-status")
+  ui.statusLeft = el("span", "qg-status-main")
+  ui.statusLeft.text = "Ready"
+  ui.statusRight = el("span", "qg-status-perf")
+  ui.statusChip.appendChild(ui.statusLeft)
+  ui.statusChip.appendChild(ui.statusRight)
+  ui.stage.appendChild(ui.statusChip)
+
+proc buildSelectionPill(ui: EditorUi) =
+  ## Phones: quick actions for the selection, above the tab bar.
+  ui.selPill = div0("qg-selpill")
+  proc add(iconName, title: string, handler: proc()) =
+    let b = iconButton(iconName, title)
+    b.on("click", proc(e: Event) = handler())
+    ui.selPill.appendChild(b)
+  add("edit", "Edit text", proc() = ui.run("edit"))
+  add("palette", "Style", proc() = ui.openPanel("inspector", "style"))
+  add("duplicate", "Duplicate", proc() = ui.run("duplicate"))
+  add("star", "Save as block", proc() = ui.run("addToScratchpad"))
+  add("toFront", "To front", proc() = ui.run("toFront"))
+  add("trash", "Delete", proc() = ui.run("delete"))
+  add("more", "More actions", proc() =
+    ui.fillContextMenu()
+    ui.contextMenu.hidden = false
+    ui.openPanel("context"))
+  ui.stage.appendChild(ui.selPill)
 
 proc createUi(ui: EditorUi) =
-  # Menubar with the application mark, menus and status label.
-  ui.menubar = div0("geMenubar")
-  ui.appMark = div0("geAppMark")
-  ui.appMark.text = "P"
-  ui.appMark.title = "Pixel Graph Editor"
-  ui.menubar.appendChild(ui.appMark)
-  ui.buildMenus(ui.menubar)
-  ui.statusContainer = el("a", "geItem geStatus")
-  ui.menubar.appendChild(ui.statusContainer)
-  ui.documentTitle = div0("geDocumentTitle")
-  ui.documentTitle.text = "Visual Script Editor — Canvas Native"
-  ui.menubar.appendChild(ui.documentTitle)
-  ui.menubarContainer.appendChild(ui.menubar)
-
-  ui.toolbarElement = div0("geToolbar")
-  ui.buildToolbar(ui.toolbarElement)
-  ui.toolbarContainer.appendChild(ui.toolbarElement)
-
-  ui.buildSidebar(ui.sidebarContainer)
+  ui.buildTopbar()
+  ui.buildRail()
+  ui.buildMenuPanel()
+  ui.buildToolbar()
+  ui.buildSidebar()
   ui.buildFormat()
-  ui.buildFooter()
+  ui.buildWindows()
+  ui.buildStatus()
+  ui.buildSelectionPill()
+  ui.buildTabbar()
   ui.buildContextMenu()
-  ui.addSplitHandler(ui.hsplit, proc(value: float64) =
-    ui.hsplitPosition = value
-    ui.refresh())
 
 proc bindEvents(ui: EditorUi) =
   let g = ui.graph
@@ -350,26 +418,38 @@ proc bindEvents(ui: EditorUi) =
   g.on("zoomchange", proc(d: Val) = ui.updateStatus())
   g.on("selectionchange", proc(selection: Val) =
     let n = if selection == nil: 0 else: selection.len
-    ui.statusLeft.text = if n > 0: $n & " object" & (if n == 1: "" else: "s") & " selected" else: "Ready"
-    ui.setStatusText(if n > 0: $n & " selected" else: "")
+    ui.statusLeft.text = if n > 0: $n & " selected" else: "Ready"
+    ui.container.toggleClass("has-selection", n > 0)
     ui.updateFormat())
   g.on("diagramchange", proc(d: Val) = ui.updateFormat())
   g.on("toast", proc(d: Val) = ui.toast(valStr(d)))
   g.on("contextmenu", proc(d: Val) = ui.showContextMenu(d))
+  g.on("dropblock", proc(d: Val) =
+    let point = newObj()
+    point["x"] = d["x"]
+    point["y"] = d["y"]
+    ui.insertBlockJson(str(d["json"]), point))
 
   ui.fileInput.on("change", proc(e: Event) =
     let files = ui.fileInput.getNode("files")
     if not files.isNil and files.getNum("length") > 0:
-      ui.editor.openFile(files.invoke("item", 0).toNode)
+      let file = files.invoke("item", 0).toNode
+      var name = file.getStr("name")
+      let dot = name.rfind('.')
+      if dot > 0: name = name[0 ..< dot]
+      ui.docName.value = name
+      ui.editor.openFile(file)
     ui.fileInput.value = "")
 
   document.on("pointerdown", proc(e: Event) =
     let target = e.target
-    if target.closest(".geMenuWrapper").isNil and target.closest(".geMenuDropdown").isNil:
-      ui.closeMenus()
-    if target.closest(".geContextMenu").isNil: ui.hideContextMenu())
+    if target.closest(".qg-menu").isNil and target.closest("[aria-haspopup]").isNil: ui.closeMenus()
+    if target.closest(".qg-context").isNil: ui.hideContextMenu())
 
   document.on("keydown", proc(e: Event) =
+    if e.key == "Escape" and ui.sheetOpen:
+      ui.closeSheet()
+      return
     let modifier = e.ctrlKey or e.metaKey
     if not modifier or e.target.matches("input,textarea,select,[contenteditable]"): return
     let key = e.key.toLowerAscii()
@@ -393,6 +473,9 @@ proc bindEvents(ui: EditorUi) =
       e.preventDefault()
     if e.shiftKey and key == "v":
       ui.run("pasteStyle")
+      e.preventDefault()
+    if e.shiftKey and key == "b":
+      ui.run("addToScratchpad")
       e.preventDefault())
 
-  window.on("resize", proc(e: Event) = ui.refresh(true))
+  window.on("resize", proc(e: Event) = ui.applyLayout())

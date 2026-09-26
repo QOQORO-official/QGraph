@@ -2,14 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <meta name="description" content="Pixel-native canvas diagram editor written in Nim and compiled to WebAssembly: the editor, its UI, file formats, media and painting all run in the module; the page only hosts it.">
-    <title>Visual Script Editor — Pixel Canvas</title>
-    <link rel="stylesheet" type="text/css" href="styles/grapheditor.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="QGraph Studio: a diagram and flowchart editor written in Nim and compiled to WebAssembly. The UI, engine, formats and media all run in the module; the page only hosts it.">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#161920" media="(prefers-color-scheme: dark)">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>QGraph Studio</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="favicon.svg">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" type="text/css" href="styles/qgraph.css">
     <!-- The generic host: DOM command buffer, events, timers, workers. The
          application itself is js/qgraph.wasm. -->
     <script type="text/javascript" src="js/qweb.js"></script>
 </head>
-<body class="geEditor">
+<body class="qg-app">
 </body>
 </html>

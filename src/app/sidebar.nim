@@ -1,21 +1,13 @@
-# Included from editorui.nim: the classic shape sidebar (Sidebar.js).
-#
-# The DOM follows the classic GraphEditor sidebar: tabs, collapsible
-# palettes, search and a scratchpad. Thumbnails are SVG built through the
-# command buffer, so hundreds of them cost a single flush.
+# Included from editorui.nim: the shape library -- search, category chips
+# and collapsible groups of SVG tiles, plus the Saved (scratchpad) group.
+# Hundreds of tiles are built through the command buffer in one flush.
 
 const
   ScratchpadKey = "pixel-graph-scratchpad"
 
-let
-  CollapsedImage = "data:image/svg+xml;utf8," & encodeURIComponent(
-    "<svg xmlns='http://www.w3.org/2000/svg' width='13' height='13'><path fill='#999999' d='M4 3 L9 6.5 L4 10 Z'/></svg>")
-  ExpandedImage = "data:image/svg+xml;utf8," & encodeURIComponent(
-    "<svg xmlns='http://www.w3.org/2000/svg' width='13' height='13'><path fill='#999999' d='M3 4 L10 4 L6.5 9 Z'/></svg>")
-
 proc newSidebar(): Sidebar =
-  # The classic GraphEditor compact inventory dimensions and palette order.
-  Sidebar(thumbWidth: 32, thumbHeight: 30, thumbPadding: 1, thumbBorder: 1,
+  # The classic inventory's palette order.
+  Sidebar(thumbWidth: 36, thumbHeight: 32, thumbPadding: 0, thumbBorder: 0,
     originalPalettes: @[
       Palette(id: "general", name: "General", expanded: true, classic: "general"),
       Palette(id: "misc", name: "Misc", classic: "misc"),
@@ -178,20 +170,16 @@ proc classicTemplate(sb: Sidebar, entry: Val): Val =
   templ
 
 proc createThumb(sb: Sidebar, shapeName: string, custom: Val, previewSource: Val): Node =
-  ## Palette previews are SVG: sharp at any device pixel ratio, with HTML
-  ## labels in foreignObjects as in the classic inventory.
+  ## Library tiles are SVG previews: sharp at any pixel density.
   let templ = if custom != nil: custom else: nodeTemplate(shapeName)
   if templ != nil:
     let svg = preview(templ, sb.thumbWidth, sb.thumbHeight, previewSource)
     if not svg.isNil:
-      svg.setAttribute("class", "geShapeSvg")
+      svg.setAttribute("class", "qg-shape-svg")
       return svg
-  # Unknown entries get a small ordinary HTML preview.
-  result = div0("geShapeHtml")
+  result = div0("qg-shape-text")
   result.text = if templ != nil and truthy(templ["text"]): str(templ["text"])
                 elif templ != nil and truthy(templ["shape"]): str(templ["shape"]) else: "Shape"
-  result.style("width", px(sb.thumbWidth))
-  result.style("height", px(sb.thumbHeight))
 
 proc loadScratchpad(): seq[Val] =
   let (found, text) = storageGet(ScratchpadKey)
@@ -203,7 +191,8 @@ proc loadScratchpad(): seq[Val] =
   except JsonError: discard
 
 proc saveScratchpad(ui: EditorUi, list: seq[Val]) =
-  if not storageSet(ScratchpadKey, toJson(newArr(list))): ui.toast("Scratchpad is full")
+  if not storageSet(ScratchpadKey, toJson(newArr(list))):
+    ui.toast("Your browser storage is full: remove a block and try again")
 
 proc renderScratchpad(ui: EditorUi)
 
@@ -214,29 +203,14 @@ proc stripTags(s: string): string =
     elif c == '>' and inTag: inTag = false
     elif not inTag: result.add c
 
-proc addToScratchpad(ui: EditorUi, node: Val = nil) =
-  var source = node
-  if source == nil:
-    for item in ui.graph.getSelection():
-      if nodesOnly(item):
-        source = item
-        break
-  if source == nil:
-    ui.toast("Select a shape to add to the scratchpad")
-    return
-  let entry = clone(source)
-  for key in ["id", "x", "y", "z", "groups", "groupId", "layer", "foldedAway", "foldedBy"]:
-    entry.remove(key)
-  var list = loadScratchpad()
-  let label = if truthy(source["text"]): str(source["text"])
-              elif truthy(source["shape"]): str(source["shape"]) else: "Shape"
-  var name = stripTags(label)
-  # String.slice(0, 24) counts UTF-16 units; keep whole characters.
+proc shortName(label: string): string =
+  ## Up to 24 UTF-16 units of the label, whole characters only.
+  result = jsTrim(stripTags(label))
   var units = 0
-  var cut = name.len
+  var cut = result.len
   var i = 0
-  while i < name.len:
-    let c = ord(name[i])
+  while i < result.len:
+    let c = ord(result[i])
     let width = if c < 0x80: 1 elif c < 0xE0: 2 elif c < 0xF0: 3 else: 4
     let u = if width == 4: 2 else: 1
     if units + u > 24:
@@ -244,14 +218,137 @@ proc addToScratchpad(ui: EditorUi, node: Val = nil) =
       break
     units += u
     i += width
-  name.setLen(min(cut, name.len))
+  result.setLen(min(cut, result.len))
+
+proc blockThumb(items: seq[Val]): string =
+  ## A painted PNG preview of a block, drawn by the scene painter itself.
+  if items.len == 0: return ""
+  var scene = initTable[string, Val]()
+  for it in items: scene[idOf(it)] = it
+  var minX, minY = Inf
+  var maxX, maxY = -Inf
+  for it in items:
+    let b = itemBounds(it, scene)
+    minX = min(minX, b.x)
+    minY = min(minY, b.y)
+    maxX = max(maxX, b.x + b.width)
+    maxY = max(maxY, b.y + b.height)
+  if minX > maxX: return ""
+  const width = 112.0
+  const height = 84.0
+  const pad = 8.0
+  let bw = max(1.0, maxX - minX)
+  let bh = max(1.0, maxY - minY)
+  let scale = min(2.0, min((width - pad * 2) / bw, (height - pad * 2) / bh))
+  let p = newScenePainter()
+  p.sync(items)
+  let canvas = createElement("canvas")
+  var surface = newSurface(canvas)
+  let view = newObj()
+  view["zoom"] = jnum(scale)
+  view["dpr"] = jnum(2)
+  view["width"] = jnum(width)
+  view["height"] = jnum(height)
+  view["scrollX"] = jnum(minX * scale - (width - bw * scale) / 2)
+  view["scrollY"] = jnum(minY * scale - (height - bh * scale) / 2)
+  view["background"] = jstr("#ffffff")
+  view["grid"] = jfalse
+  view["pageView"] = jfalse
+  discard p.paint(surface, view)
+  result = canvas.invoke("toDataURL", "image/png").toStr
+  release(surface.ctx)
+  release(canvas)
+
+proc templateItem(templ: Val): Val =
+  ## A single template as a scene item, for its thumbnail.
+  result = clone(templ)
+  result["id"] = jstr("block-preview")
+  if not result.eqs("type", "edge"): result["type"] = jstr("node")
+  result["x"] = jnum(0)
+  result["y"] = jnum(0)
+  result.remove("children")
+
+proc selectionFragment(ui: EditorUi): seq[Val] =
+  ## The selection, plus whatever sits inside selected containers and the
+  ## connectors running between selected shapes.
+  let g = ui.graph.g
+  var ids = initHashSet[string]()
+  for item in g.getSelection(): ids.incl idOf(item)
+  var grew = true
+  while grew:
+    grew = false
+    for item in g.items:
+      let id = idOf(item)
+      if id in ids: continue
+      let parent = strOrEmpty(item["containerId"])
+      let bothEnds = item.eqs("type", "edge") and strOrEmpty(item["sourceId"]) in ids and
+        strOrEmpty(item["targetId"]) in ids
+      if (parent.len > 0 and parent in ids) or bothEnds:
+        ids.incl id
+        grew = true
+  for item in g.items:
+    if idOf(item) in ids: result.add clone(item)
+
+proc storeBlock(ui: EditorUi, name: string, data: Val, items: seq[Val]) =
   let record = newObj()
-  record["name"] = jstr(name)
-  record["data"] = entry
+  record["name"] = jstr(if name.len > 0: name else: "Block")
+  if data != nil: record["data"] = data
+  if items.len > 0: record["items"] = newArr(items)
+  let thumb = if items.len > 0: blockThumb(items) else: blockThumb(@[templateItem(data)])
+  if thumb.len > 0: record["thumb"] = jstr(thumb)
+  var list = loadScratchpad()
   list.add record
   ui.saveScratchpad(list)
   ui.renderScratchpad()
-  ui.toast("Added to scratchpad")
+  if ui.sidebar.blocksSection != nil: ui.sidebar.blocksSection.outer.addClass("is-open")
+  ui.toast("Saved “" & valStr(record["name"]) & "” to My Blocks")
+
+proc addToScratchpad(ui: EditorUi, node: Val = nil) =
+  ## Saves a template (a dropped library tile) or the current selection as a
+  ## reusable block.
+  if node != nil:
+    let entry = clone(node)
+    for key in ["id", "x", "y", "z", "groups", "groupId", "layer", "foldedAway", "foldedBy"]:
+      entry.remove(key)
+    let label = if truthy(node["text"]): str(node["text"])
+                elif truthy(node["shape"]): str(node["shape"]) else: "Shape"
+    ui.storeBlock(shortName(label), entry, @[])
+    return
+  let fragment = ui.selectionFragment()
+  if fragment.len == 0:
+    ui.toast("Select shapes on the canvas, then save them as a block")
+    return
+  let first = fragment[0]
+  let suggested = shortName(if truthy(first["text"]): str(first["text"])
+                            elif truthy(first["shape"]): str(first["shape"]) else: "Block")
+  let (ok, typed) = prompt("Name this block", if suggested.len > 0: suggested else: "Block")
+  if not ok: return
+  let name = shortName(typed)
+  if fragment.len == 1 and not first.eqs("type", "edge"):
+    let entry = clone(first)
+    for key in ["id", "x", "y", "z", "groups", "groupId", "layer", "foldedAway", "foldedBy",
+                "containerId"]:
+      entry.remove(key)
+    ui.storeBlock(name, entry, @[])
+    return
+  # Several items: keep them together as one group when inserted.
+  var shared = ""
+  var common = true
+  for item in fragment:
+    let groups = item["groups"]
+    let top = if groups.isArr and groups.len > 0: str(groups[groups.len - 1]) else: ""
+    if shared.len == 0 and top.len > 0: shared = top
+    if top.len == 0 or top != shared: common = false
+  if not common:
+    for item in fragment:
+      let groups = if item["groups"].isArr: item["groups"] else: newArr()
+      groups.push jstr("block-group")
+      item["groups"] = groups
+      item["groupId"] = groups[0]
+  for item in fragment:
+    item.remove("layer")
+    item.remove("z")
+  ui.storeBlock(name, nil, fragment)
 
 proc removeScratchpad(ui: EditorUi, index: int) =
   var list = loadScratchpad()
@@ -259,6 +356,54 @@ proc removeScratchpad(ui: EditorUi, index: int) =
   list.delete(index)
   ui.saveScratchpad(list)
   ui.renderScratchpad()
+
+proc insertBlockJson(ui: EditorUi, json: string, point: Val = nil) =
+  ## Inserts a multi-item block, centred on `point` or the viewport.
+  var items: seq[Val]
+  try:
+    for item in parseJson(json): items.add item
+  except JsonError: return
+  if items.len == 0: return
+  discard ui.insertImportedItems(items, "block", "Insert Block", point)
+
+proc exportBlocks(ui: EditorUi) =
+  let list = loadScratchpad()
+  if list.len == 0:
+    ui.toast("My Blocks is empty")
+    return
+  let payload = newObj()
+  payload["type"] = jstr("qgraph-blocks")
+  payload["version"] = jnum(1)
+  payload["blocks"] = newArr(list)
+  ui.editor.downloadText(toJsonPretty(payload, 2), "qgraph-blocks.json", "application/json")
+
+proc importBlocks(ui: EditorUi, text: string) =
+  var incoming: seq[Val]
+  try:
+    let parsed = parseJson(text)
+    let source = if parsed.isArr: parsed elif parsed.isObj and parsed["blocks"].isArr: parsed["blocks"] else: nil
+    if source != nil:
+      for entry in source:
+        if entry.isObj and (entry["data"].isObj or entry["items"].isArr): incoming.add entry
+  except JsonError:
+    ui.toast("That file is not a QGraph block library")
+    return
+  if incoming.len == 0:
+    ui.toast("No blocks found in that file")
+    return
+  var list = loadScratchpad()
+  for entry in incoming:
+    if not truthy(entry["thumb"]):
+      var items: seq[Val]
+      if entry["items"].isArr:
+        for it in entry["items"]: items.add it
+      else: items.add templateItem(entry["data"])
+      let thumb = blockThumb(items)
+      if thumb.len > 0: entry["thumb"] = jstr(thumb)
+    list.add entry
+  ui.saveScratchpad(list)
+  ui.renderScratchpad()
+  ui.toast("Imported " & $incoming.len & " block" & (if incoming.len == 1: "" else: "s"))
 
 proc replaceSelectionShape(ui: EditorUi, templ: Val, title: string) =
   ## The classic Shift-click on a palette entry: change what the selected
@@ -279,15 +424,13 @@ proc replaceSelectionShape(ui: EditorUi, templ: Val, title: string) =
 proc createItem(ui: EditorUi, shapeName, title: string, custom: Val, previewSource: Val = nil,
                 scratchpadItem = false): Node =
   let sb = ui.sidebar
-  let elt = el("a", "geItem")
-  elt.setAttribute("title", title & " — Shift+click to change the shape of the selection" &
-    (if scratchpadItem: ", right-click to remove from Scratchpad" else: ""))
+  let elt = el("button", "qg-shape")
+  elt.typ = "button"
+  elt.setAttribute("title", title & " — Shift+click changes the selected shapes" &
+    (if scratchpadItem: "; right-click removes it from Saved" else: ""))
+  elt.setAttribute("aria-label", title)
   if shapeName.len > 0: elt.setData("shape", shapeName)
   elt.setData("search", title.toLowerAscii())
-  elt.style("overflow", "hidden")
-  elt.style("width", px(sb.thumbWidth + 2 * sb.thumbBorder))
-  elt.style("height", px(sb.thumbHeight + 2 * sb.thumbBorder))
-  elt.style("padding", px(sb.thumbPadding))
   elt.setProp("draggable", true)
   elt.appendChild(sb.createThumb(shapeName, custom, previewSource))
   let customJson = if custom != nil: toJson(custom) else: ""
@@ -303,59 +446,134 @@ proc createItem(ui: EditorUi, shapeName, title: string, custom: Val, previewSour
     elif customJson.len > 0:
       discard ui.editor.addTemplateAtCenter(parseJson(customJson))
     else:
-      discard ui.editor.addAtCenter(shapeName))
+      discard ui.editor.addAtCenter(shapeName)
+    # On a phone the sheet covers the canvas: show the new shape.
+    if ui.layout == lmPhone and not e.shiftKey: ui.closeSheet())
   elt
+
+proc blockTile(ui: EditorUi, entry: Val, index: int): Node =
+  ## A custom block: painted thumbnail, name and a remove button.
+  let name = valStr(entry["name"])
+  let tile = div0("qg-block")
+  tile.setData("search", name.toLowerAscii())
+  let main = el("button", "qg-shape qg-block-main")
+  main.typ = "button"
+  main.setAttribute("title", name & " — click to insert, drag onto the canvas; right-click to remove")
+  main.setAttribute("aria-label", name)
+  main.setProp("draggable", true)
+  if truthy(entry["thumb"]):
+    let img = el("img", "qg-block-thumb")
+    img.setAttribute("alt", "")
+    img.setAttribute("draggable", "false")
+    img.setProp("src", str(entry["thumb"]))
+    main.appendChild(img)
+  elif entry["data"].isObj:
+    main.appendChild(ui.sidebar.createThumb("", entry["data"], nil))
+  let label = el("span", "qg-block-name")
+  label.text = name
+  main.appendChild(label)
+  let isFragment = entry["items"].isArr
+  let payload = if isFragment: toJson(entry["items"]) elif entry["data"].isObj: toJson(entry["data"]) else: ""
+  main.on("dragstart", proc(e: Event) =
+    let dt = e.dataTransfer
+    dt.call("setData", if isFragment: "application/x-qgraph-block" else: "application/x-pixel-shape-data", payload)
+    dt.setProp("effectAllowed", "copy"))
+  main.on("click", proc(e: Event) =
+    e.preventDefault()
+    if payload.len == 0: return
+    if isFragment: ui.insertBlockJson(payload)
+    elif e.shiftKey: ui.replaceSelectionShape(parseJson(payload), name)
+    else: discard ui.editor.addTemplateAtCenter(parseJson(payload))
+    if ui.layout == lmPhone and not e.shiftKey: ui.closeSheet())
+  main.on("contextmenu", proc(e: Event) =
+    e.preventDefault()
+    ui.removeScratchpad(index))
+  let remove = iconButton("close", "Remove “" & name & "”", "qg-block-remove")
+  remove.on("click", proc(e: Event) =
+    e.stopPropagation()
+    ui.removeScratchpad(index))
+  tile.appendChild(main)
+  tile.appendChild(remove)
+  tile
 
 proc renderScratchpad(ui: EditorUi) =
   let list = loadScratchpad()
+  let section = ui.sidebar.blocksSection
+  if section != nil: section.items.setLen(0)
   for panel in ui.sidebar.scratchpadBodies:
     panel.dropChildren()
-    if list.len == 0:
-      let empty = div0("geDropTarget")
-      empty.text = "Drop a shape here to reuse it"
-      panel.appendChild(empty)
-      continue
     for index, entry in list:
-      let i = index
-      let item = ui.createItem("", valStr(entry["name"]), entry["data"], nil, true)
-      item.on("contextmenu", proc(e: Event) =
-        e.preventDefault()
-        ui.removeScratchpad(i))
-      panel.appendChild(item)
+      let tile = ui.blockTile(entry, index)
+      panel.appendChild(tile)
+      if section != nil: section.items.add tile
+    let drop = el("button", "qg-dropzone")
+    drop.typ = "button"
+    drop.setAttribute("title", "Drop a shape here, or click to save the selection")
+    drop.on("click", proc(e: Event) = ui.addToScratchpad())
+    drop.appendChild(icon("plus", 18))
+    let t = createElement("span")
+    t.text = if list.len == 0: "Drop a shape here, or select shapes and tap to save them"
+             else: "Drop or tap to add the selection"
+    drop.appendChild(t)
+    panel.appendChild(drop)
 
-proc createTitle(label: string): Node =
-  result = el("a", "geTitle")
-  result.text = label
-  result.style("backgroundRepeat", "no-repeat")
-  result.style("backgroundPosition", "0% 50%")
+proc newSection(ui: EditorUi, parent: Node, key, name: string, expanded: bool,
+                palette: Palette): Section =
+  ## A collapsible group of shape tiles.
+  let outer = el("section", "qg-lib-section" & (if expanded: " is-open" else: ""))
+  outer.setData("section", key)
+  let title = el("button", "qg-lib-head")
+  title.typ = "button"
+  title.appendChild(icon("chevronRight", 16))
+  let t = el("span", "qg-lib-name")
+  t.text = name
+  title.appendChild(t)
+  let grid = div0("qg-shape-grid")
+  outer.appendChild(title)
+  outer.appendChild(grid)
+  parent.appendChild(outer)
+  title.on("click", proc(e: Event) = outer.toggleClass("is-open", not outer.matches(".is-open")))
+  result = Section(title: title, outer: outer, body: grid, palette: palette)
+  ui.sidebar.sections.add result
 
-proc addFoldingHandler(title, content: Node, expanded: bool) =
-  var open = expanded
-  proc sync() =
-    title.style("backgroundImage", "url('" & (if open: ExpandedImage else: CollapsedImage) & "')")
-  sync()
-  title.on("click", proc(e: Event) =
-    open = content.get2("style", "display").toStr == "none"
-    content.style("display", if open: "block" else: "none")
-    sync())
-
-proc createScratchpad(ui: EditorUi, panel: Node) =
-  let title = createTitle("Scratchpad")
-  let content = div0("geSidebar geScratchpadPalette")
-  content.style("touchAction", "none")
-  panel.appendChild(title)
-  let outer = createElement("div")
-  outer.appendChild(content)
-  panel.appendChild(outer)
-  addFoldingHandler(title, content, true)
+proc createScratchpad(ui: EditorUi, parent: Node) =
+  ## My Blocks: the user's own reusable shapes and multi-shape blocks.
+  let section = ui.newSection(parent, "saved", "My Blocks", true, Palette(id: "saved", name: "My Blocks"))
+  ui.sidebar.blocksSection = section
+  section.outer.addClass("qg-blocks")
+  let actions = div0("qg-block-actions")
+  let save = textButton("Save selection", "qg-btn qg-btn-primary qg-btn-sm", "star")
+  save.setAttribute("title", "Save the selected shapes as a reusable block")
+  save.on("click", proc(e: Event) = ui.addToScratchpad())
+  let importButton = iconButton("folder", "Import blocks from a file")
+  let exportButton = iconButton("download", "Export My Blocks to a file")
+  let picker = createElement("input")
+  picker.typ = "file"
+  picker.setProp("accept", ".json,application/json")
+  picker.hidden = true
+  importButton.on("click", proc(e: Event) = picker.click())
+  picker.on("change", proc(e: Event) =
+    let files = picker.getNode("files")
+    if files.isNil or files.getNum("length") == 0: return
+    readBlob(files.invoke("item", 0).toNode, brText, proc(ok: bool, text: string) =
+      if ok: ui.importBlocks(text))
+    picker.value = "")
+  exportButton.on("click", proc(e: Event) = ui.exportBlocks())
+  actions.appendChild(save)
+  actions.appendChild(importButton)
+  actions.appendChild(exportButton)
+  actions.appendChild(picker)
+  section.outer.insertBefore(actions, section.body)
+  let content = section.body
+  content.addClass("qg-scratchpad")
   ui.sidebar.scratchpadBodies.add content
   content.on("dragover", proc(e: Event) =
     e.preventDefault()
-    content.addClass("geSidebarDropActive"))
-  content.on("dragleave", proc(e: Event) = content.removeClass("geSidebarDropActive"))
+    content.addClass("is-drop-target"))
+  content.on("dragleave", proc(e: Event) = content.removeClass("is-drop-target"))
   content.on("drop", proc(e: Event) =
     e.preventDefault()
-    content.removeClass("geSidebarDropActive")
+    content.removeClass("is-drop-target")
     let dt = e.dataTransfer
     let shape = dt.invoke("getData", "application/x-pixel-shape").toStr
     let payload = dt.invoke("getData", "application/x-pixel-shape-data").toStr
@@ -365,39 +583,22 @@ proc createScratchpad(ui: EditorUi, panel: Node) =
     elif shape.len > 0: ui.addToScratchpad(nodeTemplate(shape))
     else: ui.addToScratchpad())
 
-proc createSearch(ui: EditorUi, panel: Node) =
-  let wrap = div0("geSearchWrap")
-  let search = el("input", "geSearchBox")
-  search.typ = "search"
-  search.setProp("placeholder", "Search Shapes")
-  wrap.appendChild(search)
-  panel.appendChild(wrap)
-  search.on("input", proc(e: Event) =
-    let query = jsTrim(search.value).toLowerAscii()
-    for section in ui.sidebar.sections:
-      var matched = 0
-      for item in section.items:
-        let hit = query.len == 0 or item.get2("dataset", "search").toStr.contains(query)
-        item.hidden = not hit
-        if hit: inc matched
-      let visible = query.len == 0 or matched > 0
-      section.title.hidden = not visible
-      section.outer.hidden = not visible
-      if query.len > 0 and visible: section.body.style("display", "block"))
+proc filterLibrary(ui: EditorUi, query: string, category: string) =
+  for section in ui.sidebar.sections:
+    let inCategory = category == "all" or section.palette.id == category
+    var matched = 0
+    for item in section.items:
+      let hit = query.len == 0 or item.get2("dataset", "search").toStr.contains(query)
+      item.hidden = not hit
+      if hit: inc matched
+    # My Blocks stays visible while searching: it is also the drop target.
+    let visible = inCategory and (query.len == 0 or matched > 0 or section.palette.id == "saved")
+    section.outer.hidden = not visible
+    if visible and (query.len > 0 or category != "all"): section.outer.addClass("is-open")
 
-proc addPalette(ui: EditorUi, panel: Node, palette: Palette) =
+proc addPalette(ui: EditorUi, parent: Node, palette: Palette) =
   let sb = ui.sidebar
-  let title = createTitle(palette.name)
-  let content = div0("geSidebar")
-  content.style("touchAction", "none")
-  if not palette.expanded: content.style("display", "none")
-  panel.appendChild(title)
-  let outer = createElement("div")
-  outer.appendChild(content)
-  panel.appendChild(outer)
-  addFoldingHandler(title, content, palette.expanded)
-  let section = Section(title: title, outer: outer, body: content, palette: palette)
-  sb.sections.add section
+  let section = ui.newSection(parent, palette.id, palette.name, palette.expanded, palette)
   if palette.stencilLibrary.len > 0: sb.stencilHosts[palette.stencilLibrary.toLowerAscii()] = section
   if palette.classic.len > 0:
     # A classic palette carries its shapes as mxGraph styles.
@@ -407,7 +608,7 @@ proc addPalette(ui: EditorUi, panel: Node, palette: Palette) =
         let templ = sb.classicTemplate(entry)
         if templ == nil: continue
         let item = ui.createItem("", valStr(entry["title"]), templ, entry)
-        content.appendChild(item)
+        section.body.appendChild(item)
         section.items.add item
 
 proc addStencilPalettes(ui: EditorUi) =
@@ -447,22 +648,50 @@ proc addStencilPalettes(ui: EditorUi) =
         host.items.add item
     sb.loadedStencils[key] = already
 
-proc buildSidebar(ui: EditorUi, container: Node) =
+proc buildSidebar(ui: EditorUi) =
   let sb = ui.sidebar
-  sb.container = container
-  container.dropChildren()
-  let tabs = div0("geSidebarTabs")
-  let tabOriginal = div0("geSidebarTab active")
-  tabOriginal.text = "Original"
-  tabs.appendChild(tabOriginal)
-  container.appendChild(tabs)
-  # Only the original mxGraph inventory is part of this build.
-  let panelOriginal = div0("geSidebarTabPanel active")
-  panelOriginal.setAttribute("id", "originalMxGraphObj")
-  container.appendChild(panelOriginal)
-  sb.originalPanel = panelOriginal
-  ui.createScratchpad(panelOriginal)
-  ui.createSearch(panelOriginal)
-  for palette in sb.originalPalettes: ui.addPalette(panelOriginal, palette)
+  let (root, content) = panel("Shapes", "library", proc() =
+    if ui.layout == lmPhone: ui.closeSheet() else: ui.togglePane("sidebar"))
+  ui.libraryPanel = root
+  sb.container = root
+  sb.originalPanel = content
+
+  let searchWrap = div0("qg-search")
+  searchWrap.appendChild(icon("search", 18))
+  let search = el("input", "qg-search-input")
+  search.typ = "search"
+  search.setProp("placeholder", "Search shapes")
+  search.setAttribute("aria-label", "Search shapes")
+  searchWrap.appendChild(search)
+  content.appendChild(searchWrap)
+
+  let chips = div0("qg-chips")
+  content.appendChild(chips)
+  var category = "all"
+  var chipNodes: seq[(string, Node)]
+  proc addChip(key, label: string) =
+    let c = chip(label, key == "all")
+    c.setData("category", key)
+    c.on("click", proc(e: Event) =
+      category = key
+      for (k, n) in chipNodes: n.toggleClass("is-active", k == key)
+      ui.filterLibrary(jsTrim(search.value).toLowerAscii(), category))
+    chipNodes.add (key, c)
+    chips.appendChild(c)
+  addChip("all", "All")
+  addChip("saved", "My blocks")
+  for palette in sb.originalPalettes: addChip(palette.id, palette.name)
+
+  let sections = div0("qg-lib-sections")
+  content.appendChild(sections)
+  ui.createScratchpad(sections)
+  for palette in sb.originalPalettes: ui.addPalette(sections, palette)
+  sb.setCategory = proc(key: string) =
+    category = key
+    for (k, n) in chipNodes: n.toggleClass("is-active", k == key)
+    ui.filterLibrary(jsTrim(search.value).toLowerAscii(), category)
+  search.on("input", proc(e: Event) =
+    ui.filterLibrary(jsTrim(search.value).toLowerAscii(), category))
+  ui.leftDock.appendChild(root)
   ui.renderScratchpad()
   ui.addStencilPalettes()

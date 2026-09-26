@@ -33,6 +33,10 @@ type
     destroyed*: bool
     selectionIds*: seq[string]
     lastClient: Pt
+    touches: Table[int, Pt]
+    pinching: bool
+    pinchMid: Pt
+    pinchDist, pinchZoom: float64
     textEditor: TextEditorDom
     tooltipElement: Node
     tooltipFor: string
@@ -217,7 +221,7 @@ proc showTooltip(v: View, hide: bool, id = "", text = "") =
   v.tooltipTimer = setTimeout(500, proc() =
     v.tooltipTimer = 0
     if v.tooltipElement.isNil:
-      v.tooltipElement = el("div", "mxTooltip geCanvasTooltip")
+      v.tooltipElement = el("div", "qg-tooltip")
       body.appendChild(v.tooltipElement)
     v.tooltipFor = id
     v.tooltipElement.text = text
@@ -405,6 +409,17 @@ proc drop(v: View, e: Event) =
         point["y"] = jnum(world.y - 60)
         discard v.insertMedia(text, name, point, "image"))
       return
+  # A saved multi-shape block: the shell inserts it (ids remapped, grouped).
+  let blockJson = dt.invoke("getData", "application/x-qgraph-block").toStr
+  if blockJson.len > 0:
+    v.clearReplaceTarget()
+    let world = v.g.eventWorld(screen)
+    let payload = newObj()
+    payload["json"] = jstr(blockJson)
+    payload["x"] = jnum(world.x)
+    payload["y"] = jnum(world.y)
+    v.emit("dropblock", payload)
+    return
   # Scratchpad entries carry their whole definition on the drag.
   let literal = dt.invoke("getData", "application/x-pixel-shape-data").toStr
   var kind = dt.invoke("getData", "application/x-pixel-shape").toStr
@@ -438,7 +453,35 @@ proc installEvents(v: View) =
     let x = ((e.clientX - r.left) / r.width - 0.5) * 2
     let y = ((e.clientY - r.top) / r.height - 0.5) * 2
     discard v.setParallaxPointer(clamp(x, -1, 1), clamp(y, -1, 1)), capture = true, passive = true)
+  # Touch: one finger drives the engine (select, move, or pan on empty
+  # canvas); a second finger switches to pinch-zoom and two-finger pan until
+  # every finger has lifted.
+  proc touchPoint(e: Event): Pt =
+    let r = rect(v.container)
+    pt(e.clientX - r.left, e.clientY - r.top)
+  proc pinchFrame(): (Pt, float64) =
+    var a, b: Pt
+    var i = 0
+    for p in v.touches.values:
+      if i == 0: a = p else: b = p
+      inc i
+    (pt((a.x + b.x) / 2, (a.y + b.y) / 2), max(1.0, hypot(a.x - b.x, a.y - b.y)))
   v.overlayCanvas.on("pointerdown", proc(e: Event) =
+    if e.pointerType == "touch":
+      v.touches[int(e.pointerId)] = touchPoint(e)
+      if v.touches.len >= 2:
+        if not v.pinching:
+          # Hand the first finger's gesture back to the engine, finished.
+          discard v.g.pointerUp(PointerEv(screen: v.screenPoint(e), touch: true))
+          v.pinching = true
+          let (mid, dist) = pinchFrame()
+          v.pinchMid = mid
+          v.pinchDist = dist
+          v.pinchZoom = v.g.zoom
+        v.overlayCanvas.call("setPointerCapture", e.pointerId)
+        e.preventDefault()
+        return
+    if v.pinching: return
     v.container.focus(preventScroll = true)
     v.lastClient = pt(e.clientX, e.clientY)
     let flags = v.g.pointerDown(v.pointerEv(e))
@@ -446,12 +489,33 @@ proc installEvents(v: View) =
       v.overlayCanvas.call("setPointerCapture", e.pointerId)
     if (flags and FlagPrevent) != 0: e.preventDefault())
   v.overlayCanvas.on("pointermove", proc(e: Event) =
+    if e.pointerType == "touch" and v.touches.hasKey(int(e.pointerId)):
+      v.touches[int(e.pointerId)] = touchPoint(e)
+    if v.pinching:
+      if v.touches.len >= 2:
+        let (mid, dist) = pinchFrame()
+        let screen = newObj()
+        screen["x"] = jnum(mid.x)
+        screen["y"] = jnum(mid.y)
+        v.setZoom(v.pinchZoom * dist / v.pinchDist, screen)
+        v.container.setProp("scrollLeft", v.container.getNum("scrollLeft") - (mid.x - v.pinchMid.x))
+        v.container.setProp("scrollTop", v.container.getNum("scrollTop") - (mid.y - v.pinchMid.y))
+        v.pinchMid = mid
+      e.preventDefault()
+      return
     v.lastClient = pt(e.clientX, e.clientY)
     let flags = v.g.pointerMove(v.pointerEv(e))
     if (flags and FlagPrevent) != 0: e.preventDefault())
-  v.overlayCanvas.on("pointerleave", proc(e: Event) = v.g.pointerLeave())
+  v.overlayCanvas.on("pointerleave", proc(e: Event) =
+    if not v.pinching: v.g.pointerLeave())
   for kind in ["pointerup", "pointercancel"]:
     v.overlayCanvas.on(kind, proc(e: Event) =
+      if e.pointerType == "touch": v.touches.del(int(e.pointerId))
+      if v.pinching:
+        if v.touches.len == 0:
+          v.pinching = false
+          v.render()
+        return
       let flags = v.g.pointerUp(v.pointerEv(e))
       if (flags and FlagRelease) != 0:
         v.overlayCanvas.call("releasePointerCapture", e.pointerId)

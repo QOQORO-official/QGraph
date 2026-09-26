@@ -19,6 +19,6 @@ printf '{"version":"%s"}\n' "$VER" > "$SITE/version.json"
 
 # Fail the deploy rather than ship a half-stamped site.
 grep -q "js/qweb.js?v=$VER" "$SITE/index.html"
-grep -q "styles/grapheditor.css?v=$VER" "$SITE/index.html"
+grep -q "styles/qgraph.css?v=$VER" "$SITE/index.html"
 ! grep -qE 'src="js/[A-Za-z0-9_-]+\.js"' "$SITE/index.html"
 echo ">> stamped $SITE as version $VER"

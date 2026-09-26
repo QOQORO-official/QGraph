@@ -1,0 +1,14 @@
+{
+  "name": "QGraph Studio",
+  "short_name": "QGraph",
+  "description": "Diagram and flowchart editor, written in Nim and compiled to WebAssembly.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#eceef3",
+  "theme_color": "#5b5cf0",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

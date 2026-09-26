@@ -1,5 +1,6 @@
-// Scripted interactions shared by compare.js. Each runs identically against
-// the original editor and the port; coordinates are page pixels at 1400x900.
+// Scripted interactions for golden.js. Diagram coordinates go through
+// toScreen(); the viewport below gives the desktop layout the same 936x803
+// canvas the goldens were recorded with.
 const fs = require('fs');
 const path = require('path');
 
@@ -61,7 +62,7 @@ module.exports = [
     await page.keyboard.press('Control+a');
   } },
   { name: 'sidebar-click-insert', run: async (page) => {
-    const items = page.locator('.geSidebar .geItem');
+    const items = page.locator('.qg-panel-library .qg-shape');
     for (const i of [0, 4, 7, 11]) {
       await items.nth(i).click();
       await page.waitForTimeout(80);
@@ -168,7 +169,7 @@ module.exports = [
   } },
   { name: 'menu-edit', run: async (page) => {
     await demo(page);
-    await page.locator('.geMenubar a, .geMenubar .geItem, .geMenubar div').filter({ hasText: /^Edit$/ }).first().click();
+    await page.locator('.qg-menubtn').filter({ hasText: /^Edit$/ }).first().click();
     await page.waitForTimeout(200);
   } },
   { name: 'toolbar-zoom-in', run: async (page) => {
@@ -209,10 +210,12 @@ module.exports = [
     await page.evaluate(() => window.editorUi.actions.run('pageView'));
   } },
   { name: 'table-insert', run: async (page) => {
-    await page.fill('.geSidebar input, input[placeholder="Search Shapes"]', 'table');
+    await page.fill('.qg-panel-library .qg-search-input', 'table');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(300);
-    await page.locator('.geItem:visible').first().click();
+    // The original's '.geItem' matched the menubar's File entry first, so the
+    // recorded golden is a search followed by opening the File menu.
+    await page.locator('.qg-menubtn:visible').first().click();
   } },
   { name: 'layers-dialog', run: async (page) => {
     await demo(page);
@@ -408,7 +411,7 @@ module.exports.push(
     await drag(page, p, q, 10);
   } },
   { name: 'sidebar-drag-drop', run: async (page) => {
-    const src = page.locator('.geSidebar .geItem').nth(4);
+    const src = page.locator('.qg-panel-library .qg-shape').nth(4);
     const target = await toScreen(page, 500, 400);
     await src.dragTo(page.locator('body'), { targetPosition: target });
     await page.waitForTimeout(300);
@@ -417,7 +420,7 @@ module.exports.push(
     await demo(page);
     await click(page, await toScreen(page, 437, 150));
     await page.keyboard.down('Shift');
-    await page.locator('.geSidebar .geItem').nth(4).click();
+    await page.locator('.qg-panel-library .qg-shape').nth(4).click();
     await page.keyboard.up('Shift');
   } },
   { name: 'layers-add-move', run: async (page) => {
@@ -453,13 +456,13 @@ module.exports.push(
   { name: 'format-tabs', run: async (page) => {
     await demo(page);
     await click(page, await toScreen(page, 437, 150));
-    await page.locator('text=Arrange').last().click();
+    await page.locator('.qg-inspector-tabs [data-tab=arrange]').click();
     await page.waitForTimeout(200);
   } },
   { name: 'text-tab', run: async (page) => {
     await demo(page);
     await click(page, await toScreen(page, 437, 150));
-    await page.locator('.geFormatContainer >> text=Text').first().click().catch(() => {});
+    await page.locator('.qg-inspector-tabs [data-tab=text]').click().catch(() => {});
     await page.waitForTimeout(200);
   } },
   { name: 'new-shape-typing', run: async (page) => {
@@ -506,3 +509,5 @@ module.exports.push(
     await page.waitForTimeout(300);
   } }
 );
+
+module.exports.viewport = { width: 1588, height: 859 };

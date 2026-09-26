@@ -84,15 +84,10 @@ proc installActions(ui: EditorUi) =
   ui.add("fitPageWidth", "Fit Page Width", proc() = discard gv.call("fitPage", jtrue))
   ui.add("pageSetup", "Page Setup…", proc() =
     discard gv.call("setSelection", newArr())
-    if ui.formatWidth == 0:
-      ui.formatWidth = 240
-      ui.refresh()
     ui.updateFormatTabs(false)
-    ui.selectFormatTab("diagram")
-    for title in ui.formatContainer.queryAll(".geFormatTitle"):
-      if title.getStr("textContent") == "Paper Size":
-        title.getNode("parentNode").call("scrollIntoView", jsJson("{\"block\":\"start\"}"))
-        break)
+    ui.openPanel("inspector", "diagram")
+    let paper = ui.inspectorPanel.query("[data-card=paper]")
+    if not paper.isNil: paper.call("scrollIntoView", jsJson("{\"block\":\"start\"}")))
   ui.add("print", "Print…", proc() = gv.print(), "Ctrl+P")
   ui.add("solid", "Solid", styled("{\"dashed\":false}", "dashPattern", "Solid"))
   ui.add("dashed", "Dashed", styled("{\"dashed\":true}", "dashPattern", "Dashed"))
@@ -130,7 +125,7 @@ proc installActions(ui: EditorUi) =
     if not ok: return
     let scale = clamp(numVal(value, 100), 10, 400) / 100
     gv.setDiagramOptions(o1("pageScale", jnum(scale))))
-  ui.add("addToScratchpad", "Add to Scratchpad", proc() = ui.addToScratchpad())
+  ui.add("addToScratchpad", "Save as Block…", proc() = ui.addToScratchpad(), "Ctrl+Shift+B")
 
   ui.add("insertTable", "Insert Table", proc() = discard editor.addAtCenter("table"))
   ui.add("insertHtml", "Insert HTML Block…", proc() = ui.editHtml())
@@ -347,7 +342,7 @@ proc installMenus(ui: EditorUi) =
   ui.menuDefinitions = @[
     ("File", @["new", "open", "-", "save", "saveAs", "-", "export", "-", "pageSetup", "print"]),
     ("Edit", @["undo", "redo", "-", "cut", "copy", "paste", "delete", "-",
-      "duplicate", "-", "editData", "editTooltip", "-", "editStyle", "-",
+      "duplicate", "addToScratchpad", "-", "editData", "editTooltip", "-", "editStyle", "-",
       "edit", "-", "editLink", "openLink", "-",
       "selectVertices", "selectEdges", "selectAll", "selectNone", "-", "lock"]),
     ("View", @["sidebar", "formatPanel", "outline", "layers", "-",
@@ -367,9 +362,34 @@ proc installMenus(ui: EditorUi) =
 
 proc buildMenus(ui: EditorUi, container: Node) =
   for (name, list) in ui.menuDefinitions:
-    let wrapper = div0("geMenuWrapper")
-    let trigger = el("a", "geItem")
+    let trigger = el("button", "qg-menubtn")
+    trigger.typ = "button"
     trigger.text = name
-    wrapper.appendChild(trigger)
-    wrapper.appendChild(ui.attachDropdown(trigger, entries(list)))
-    container.appendChild(wrapper)
+    discard ui.attachDropdown(trigger, entries(list))
+    container.appendChild(trigger)
+
+proc buildMenuPanel(ui: EditorUi) =
+  ## Phones: every menu as an expandable group in a sheet.
+  let (root, content) = panel("Menu", "menu")
+  ui.menuPanel = root
+  let quick = div0("qg-menu-quick")
+  for (iconName, label, action) in [("folder", "Open", "open"), ("save", "Save", "save"),
+                                    ("export", "Export", "exportPng"), ("layers", "Layers", "layers"),
+                                    ("map", "Outline", "outline"), ("page", "Page", "pageSetup")]:
+    let b = textButton(label, "qg-quick-tile", iconName)
+    let a = action
+    b.on("click", proc(e: Event) =
+      ui.closeSheet()
+      ui.run(a))
+    quick.appendChild(b)
+  content.appendChild(quick)
+  for index, (name, list) in ui.menuDefinitions:
+    let group = el("details", "qg-menu-group")
+    if index == 0: group.setAttribute("open", "")
+    let summary = el("summary", "qg-menu-group-title")
+    summary.text = name
+    group.appendChild(summary)
+    let items = div0("qg-menu qg-menu-inline")
+    ui.addMenuItems(items, entries(list))
+    group.appendChild(items)
+    content.appendChild(group)

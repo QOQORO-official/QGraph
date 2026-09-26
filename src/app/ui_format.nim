@@ -1,48 +1,13 @@
-# Included from editorui.nim: the format panel (Diagram/Style/Text/Arrange).
+# Included from editorui.nim: the inspector -- Diagram, Style, Text and
+# Arrange pages of cards. Every control previews live against a latched
+# selection and lands as one undo step (bindLiveStyle).
 
 type Build = proc(value: string): Val
-
-proc createFormatSection(ui: EditorUi, panel: Node, title: string, hasTitle = true): Node =
-  result = div0("geFormatSection")
-  if hasTitle:
-    let heading = div0("geFormatTitle")
-    heading.text = title
-    result.appendChild(heading)
-  panel.appendChild(result)
-
-proc makeRow(ui: EditorUi, section: Node, labelText: string, input: Node): Node {.discardable.} =
-  result = el("label", "geFormatRow")
-  let label = createElement("span")
-  label.text = labelText
-  result.appendChild(label)
-  result.appendChild(input)
-  section.appendChild(result)
 
 type InputOptions = openArray[(string, float64)]
 
 proc applyOptions(input: Node, options: InputOptions) =
   for (name, value) in options: input.setProp(name, value)
-
-proc checkbox(ui: EditorUi, section: Node, key, label: string, handler: proc(value: bool)): Node {.discardable.} =
-  let input = createElement("input")
-  input.typ = "checkbox"
-  input.on("change", proc(e: Event) = handler(input.checked))
-  ui.makeRow(section, label, input)
-  ui.formatFields[key] = input
-  input
-
-proc input(ui: EditorUi, section: Node, key, label, kind: string, handler: proc(value: string),
-           options: InputOptions = []): Node {.discardable.} =
-  ## Diagram-level controls, bound to input as well as change so dragging a
-  ## colour wheel or a number spinner updates the canvas as it happens.
-  let input = createElement("input")
-  input.typ = kind
-  input.applyOptions(options)
-  input.on("input", proc(e: Event) = handler(input.value))
-  input.on("change", proc(e: Event) = handler(input.value))
-  ui.makeRow(section, label, input)
-  ui.formatFields[key] = input
-  input
 
 proc fillOptions(select: Node, values: openArray[(string, string)]) =
   for (value, text) in values:
@@ -51,12 +16,42 @@ proc fillOptions(select: Node, values: openArray[(string, string)]) =
     option.text = text
     select.appendChild(option)
 
+proc numVal(value: string, d: float64): float64 = numberOr(value, d)
+
+proc control(kind: string, options: InputOptions = []): Node =
+  ## A form control in the inspector's style.
+  result = case kind
+    of "checkbox": switchInput()
+    of "color": el("input", "qg-swatch")
+    of "range": el("input", "qg-range")
+    else: el("input", "qg-input")
+  if kind != "checkbox": result.typ = kind
+  result.applyOptions(options)
+
+proc checkbox(ui: EditorUi, section: Node, key, label: string, handler: proc(value: bool)): Node {.discardable.} =
+  let input = control("checkbox")
+  input.on("change", proc(e: Event) = handler(input.checked))
+  field(section, label, input, "qg-field-switch")
+  ui.formatFields[key] = input
+  input
+
+proc input(ui: EditorUi, section: Node, key, label, kind: string, handler: proc(value: string),
+           options: InputOptions = []): Node {.discardable.} =
+  ## Diagram-level controls, bound to input as well as change so dragging a
+  ## colour wheel or a number spinner updates the canvas as it happens.
+  let input = control(kind, options)
+  input.on("input", proc(e: Event) = handler(input.value))
+  input.on("change", proc(e: Event) = handler(input.value))
+  field(section, label, input)
+  ui.formatFields[key] = input
+  input
+
 proc select(ui: EditorUi, section: Node, key, label: string, values: openArray[(string, string)],
             handler: proc(value: string)): Node {.discardable.} =
-  let select = createElement("select")
+  let select = el("select", "qg-select")
   select.fillOptions(values)
   select.on("change", proc(e: Event) = handler(select.value))
-  ui.makeRow(section, label, select)
+  field(section, label, select)
   ui.formatFields[key] = select
   select
 
@@ -101,102 +96,106 @@ proc bindLiveStyle(ui: EditorUi, control: Node, build: Build, commitLabel: strin
 
 proc styleInput(ui: EditorUi, section: Node, key, label, kind: string, build: Build,
                 commitLabel: string, predicate: Predicate = nil, options: InputOptions = []): Node {.discardable.} =
-  let input = createElement("input")
-  input.typ = kind
-  input.applyOptions(options)
-  ui.makeRow(section, label, input)
+  let input = control(kind, options)
+  field(section, label, input)
   ui.formatFields[key] = input
   ui.bindLiveStyle(input, build, commitLabel, predicate)
 
+proc styleRange(ui: EditorUi, section: Node, key, label: string, build: Build, commitLabel: string,
+                predicate: Predicate, options: InputOptions, suffix = ""): Node {.discardable.} =
+  ## A slider with its value read out beside it.
+  let wrap = div0("qg-range-wrap")
+  let input = control("range", options)
+  let output = el("output", "qg-range-value")
+  wrap.appendChild(input)
+  wrap.appendChild(output)
+  field(section, label, wrap)
+  ui.formatFields[key] = input
+  let sync = proc() = output.text = input.value & suffix
+  input.on("input", proc(e: Event) = sync())
+  ui.rangeSyncs.add sync
+  ui.bindLiveStyle(input, build, commitLabel, predicate)
+
+proc styleColor(ui: EditorUi, section: Node, key, label: string, property: string, commitLabel: string,
+                predicate: Predicate = nil): Node {.discardable.} =
+  ## A colour field with one-tap presets underneath.
+  let input = ui.styleInput(section, key, label, "color",
+    proc(value: string): Val = o1(property, jstr(value)), commitLabel, predicate)
+  swatchRow(section, proc(color: string) =
+    ui.graph.applyStyle(o1(property, jstr(color)), commitLabel, predicate)
+    input.value = color)
+  input
+
 proc styleCheckbox(ui: EditorUi, section: Node, key, label: string, build: Build,
                    commitLabel: string, predicate: Predicate = nil): Node {.discardable.} =
-  let input = createElement("input")
-  input.typ = "checkbox"
-  ui.makeRow(section, label, input)
+  let input = control("checkbox")
+  field(section, label, input, "qg-field-switch")
   ui.formatFields[key] = input
   ui.bindLiveStyle(input, build, commitLabel, predicate,
     proc(): string = (if input.checked: "true" else: ""))
 
 proc styleSelect(ui: EditorUi, section: Node, key, label: string, values: openArray[(string, string)],
                  build: Build, commitLabel: string, predicate: Predicate = nil): Node {.discardable.} =
-  let select = createElement("select")
+  let select = el("select", "qg-select")
   select.fillOptions(values)
-  ui.makeRow(section, label, select)
+  field(section, label, select)
   ui.formatFields[key] = select
   ui.bindLiveStyle(select, build, commitLabel, predicate)
 
-proc spriteRow(ui: EditorUi, section: Node, list: openArray[(string, string, string)]): Node {.discardable.} =
-  ## A row of classic sprite buttons, e.g. the alignment controls.
-  let row = div0("geFormatRow")
-  row.style("justifyContent", "flex-start")
-  for (sprite, title, action) in list:
-    let button = el("a", "geButton geSprite geSprite-" & sprite)
-    button.cssText = "display:inline-block;width:20px;height:20px;margin:2px;" &
-      "opacity:0.6;cursor:pointer;border:1px solid transparent;"
-    button.setAttribute("title", title)
-    # Keeping focus in an open label lets these commands apply to the
+proc actionIcons(ui: EditorUi, section: Node, list: openArray[(string, string, string)]): Node {.discardable.} =
+  ## A row of icon buttons that run actions, e.g. the alignment controls.
+  let row = iconRow(section)
+  for (iconName, title, action) in list:
+    let button = iconButton(iconName, title)
+    # Keeping focus in an open label lets text commands apply to the
     # selected range instead of closing the editor first.
     button.on("pointerdown", proc(e: Event) = e.preventDefault())
     button.on("mousedown", proc(e: Event) = e.preventDefault())
     let name = action
     button.on("click", proc(e: Event) = ui.run(name))
-    button.on("mouseenter", proc(e: Event) = button.style("opacity", "1"))
-    button.on("mouseleave", proc(e: Event) = button.style("opacity", "0.6"))
     row.appendChild(button)
-  section.appendChild(row)
   row
 
-proc formatButton(ui: EditorUi, section: Node, label: string, handler: proc()): Node {.discardable.} =
-  let button = el("button", "geBtn")
-  button.text = label
+proc formatButton(ui: EditorUi, section: Node, label: string, handler: proc(), iconName = ""): Node {.discardable.} =
+  let button = textButton(label, "qg-btn qg-btn-soft", iconName)
   button.on("click", proc(e: Event) = handler())
   section.appendChild(button)
   button
 
-proc numVal(value: string, d: float64): float64 = numberOr(value, d)
-
 proc buildFormat(ui: EditorUi) =
   let g = ui.graph
-  ui.formatTabs = div0("geFormatTabs")
-  ui.formatContainer.appendChild(ui.formatTabs)
+  let (root, content) = panel("Inspector", "inspector", proc() =
+    if ui.layout == lmPhone: ui.closeSheet() else: ui.togglePane("inspector"))
+  ui.inspectorPanel = root
+  ui.formatTabs = div0("qg-segmented qg-inspector-tabs")
+  ui.formatTabs.setAttribute("role", "tablist")
+  content.appendChild(ui.formatTabs)
 
   proc makePanel(name: string): Node =
-    result = div0("geFormatPanel")
+    result = div0("qg-page")
+    result.setData("page", name)
     result.hidden = true
-    ui.formatContainer.appendChild(result)
+    content.appendChild(result)
     ui.formatPanels[name] = result
 
-  proc makeTab(name, label: string) =
-    let tab = div0("geFormatTab")
-    tab.text = label
+  proc makeTab(name, label, iconName: string) =
+    let tab = el("button", "qg-segment")
+    tab.typ = "button"
+    tab.setData("tab", name)
+    tab.setAttribute("role", "tab")
+    tab.appendChild(icon(iconName, 16))
+    let t = createElement("span")
+    t.text = label
+    tab.appendChild(t)
     tab.on("mousedown", proc(e: Event) = e.preventDefault())
     tab.on("click", proc(e: Event) = ui.selectFormatTab(name))
     ui.formatTabs.appendChild(tab)
     ui.formatTabButtons[name] = tab
 
-  makeTab("diagram", "Diagram")
-  makeTab("style", "Style")
-  makeTab("text", "Text")
-  makeTab("arrange", "Arrange")
-
-  # The classic close affordance: the original 9px PNG and its placement.
-  let closeTab = div0("geFormatClose")
-  let closeImage = createElement("img")
-  closeImage.setAttribute("border", "0")
-  closeImage.setAttribute("src", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAJAQMAAADaX5RTAAAABlBMVEV7mr3///+wksspAAAAAnRSTlP/AOW3MEoAAAAdSURBVAgdY9jXwCDDwNDRwHCwgeExmASygSL7GgB12QiqNHZZIwAAAABJRU5ErkJggg==")
-  closeImage.setAttribute("title", "Hide")
-  closeImage.setAttribute("alt", "Hide")
-  for (k, v) in [("position", "absolute"), ("display", "block"), ("right", "0px"), ("top", "8px"),
-                 ("cursor", "pointer"), ("marginTop", "1px"), ("marginRight", "6px"),
-                 ("border", "1px solid transparent"), ("padding", "1px"), ("opacity", "0.5")]:
-    closeImage.style(k, v)
-  closeImage.on("mouseenter", proc(e: Event) = closeImage.style("opacity", "1"))
-  closeImage.on("mouseleave", proc(e: Event) = closeImage.style("opacity", "0.5"))
-  closeImage.on("click", proc(e: Event) =
-    e.stopPropagation()
-    ui.run("formatPanel"))
-  closeTab.appendChild(closeImage)
-  ui.formatTabs.appendChild(closeTab)
+  makeTab("diagram", "Diagram", "page")
+  makeTab("style", "Style", "palette")
+  makeTab("text", "Text", "text")
+  makeTab("arrange", "Arrange", "arrange")
 
   let diagramPanel = makePanel("diagram")
   let stylePanel = makePanel("style")
@@ -204,30 +203,31 @@ proc buildFormat(ui: EditorUi) =
   let arrangePanel = makePanel("arrange")
 
   # Diagram ---------------------------------------------------------------
-  let viewSection = ui.createFormatSection(diagramPanel, "View")
+  let viewSection = card(diagramPanel, "Canvas", "grid")
   ui.checkbox(viewSection, "gridEnabled", "Grid", proc(value: bool) =
     g.setDiagramOptions(o1("gridEnabled", jbool(value))))
-  ui.input(viewSection, "gridSize", "Grid Size", "number", proc(value: string) =
+  ui.input(viewSection, "gridSize", "Grid size", "number", proc(value: string) =
     g.setDiagramOptions(o1("gridSize", jnum(clamp(numVal(value, 10), 2, 200)))),
     [("min", 2.0), ("max", 200.0), ("step", 1.0)])
-  ui.input(viewSection, "gridColor", "Grid Color", "color", proc(value: string) =
+  ui.input(viewSection, "gridColor", "Grid color", "color", proc(value: string) =
     g.setDiagramOptions(o1("gridColor", jstr(value))))
-  ui.checkbox(viewSection, "pageView", "Page View", proc(value: bool) =
-    g.setDiagramOptions(o1("pageView", jbool(value))))
   ui.input(viewSection, "backgroundColor", "Background", "color", proc(value: string) =
     g.setDiagramOptions(o1("backgroundColor", jstr(value))))
+  ui.checkbox(viewSection, "pageView", "Page view", proc(value: bool) =
+    g.setDiagramOptions(o1("pageView", jbool(value))))
 
-  let options = ui.createFormatSection(diagramPanel, "Options")
-  ui.checkbox(options, "connectionArrows", "Connection Arrows", proc(value: bool) =
+  let options = card(diagramPanel, "Assists", "connector")
+  ui.checkbox(options, "connectionArrows", "Connection arrows", proc(value: bool) =
     g.setDiagramOptions(o1("connectionArrows", jbool(value)))
     g.drawOverlay())
-  ui.checkbox(options, "connectionPoints", "Connection Points", proc(value: bool) =
+  ui.checkbox(options, "connectionPoints", "Connection points", proc(value: bool) =
     g.setDiagramOptions(o1("connectionPoints", jbool(value)))
     g.drawOverlay())
-  ui.checkbox(options, "guidesEnabled", "Guides", proc(value: bool) =
+  ui.checkbox(options, "guidesEnabled", "Smart guides", proc(value: bool) =
     g.setDiagramOptions(o1("guidesEnabled", jbool(value))))
 
-  let paper = ui.createFormatSection(diagramPanel, "Paper Size")
+  let paper = card(diagramPanel, "Paper", "page")
+  paper.getNode("parentNode").setData("card", "paper")
   ui.paperFormats = @[
     ("850,1100", "US Letter"), ("850,1400", "US Legal"),
     ("1100,1700", "US Tabloid"), ("700,1000", "US Executive"),
@@ -254,30 +254,32 @@ proc buildFormat(ui: EditorUi) =
       changes["pageWidth"] = jnum(height)
       changes["pageHeight"] = jnum(width)
       g.setDiagramOptions(changes))
-  ui.input(paper, "pageWidth", "Width (in)", "number", proc(value: string) =
+  let pageSize = fieldRow(paper)
+  ui.input(pageSize, "pageWidth", "W (in)", "number", proc(value: string) =
     let width = jsNumber(value)
     if isFiniteJs(width) and width > 0:
       ui.formatFields["paperSize"].value = "custom"
       g.setDiagramOptions(o1("pageWidth", jnum(jsRound(width * 100)))),
     [("min", 0.5), ("max", 100.0), ("step", 0.01)])
-  ui.input(paper, "pageHeight", "Height (in)", "number", proc(value: string) =
+  ui.input(pageSize, "pageHeight", "H (in)", "number", proc(value: string) =
     let height = jsNumber(value)
     if isFiniteJs(height) and height > 0:
       ui.formatFields["paperSize"].value = "custom"
       g.setDiagramOptions(o1("pageHeight", jnum(jsRound(height * 100)))),
     [("min", 0.5), ("max", 100.0), ("step", 0.01)])
-  ui.input(paper, "pageScale", "Page Scale (%)", "number", proc(value: string) =
+  ui.input(paper, "pageScale", "Page scale (%)", "number", proc(value: string) =
     let scale = jsNumber(value)
     if isFiniteJs(scale) and scale > 0: g.setDiagramOptions(o1("pageScale", jnum(scale / 100))),
     [("min", 10.0), ("max", 400.0), ("step", 5.0)])
-  ui.formatButton(paper, "Edit Data…", proc() = ui.editData())
-  ui.formatButton(paper, "Clear Default Style", proc() = ui.run("clearDefaultStyle"))
+  let diagramActions = div0("qg-button-row")
+  diagramPanel.appendChild(diagramActions)
+  ui.formatButton(diagramActions, "Edit data…", proc() = ui.editData(), "code")
+  ui.formatButton(diagramActions, "Clear default style", proc() = ui.run("clearDefaultStyle"), "eraser")
 
   # Style -----------------------------------------------------------------
-  let appearance = ui.createFormatSection(stylePanel, "Appearance")
-  ui.styleInput(appearance, "fill", "Fill", "color",
-    proc(value: string): Val = o1("fill", jstr(value)), "Fill", nodesOnly)
-  ui.styleSelect(appearance, "gradientDirection", "Gradient", [
+  let fillCard = card(stylePanel, "Fill", "fill")
+  ui.styleColor(fillCard, "fill", "Color", "fill", "Fill", nodesOnly)
+  ui.styleSelect(fillCard, "gradientDirection", "Gradient", [
     ("", "None"), ("vertical", "Vertical"), ("horizontal", "Horizontal"),
     ("radial", "Radial"), ("diagonal", "Diagonal")],
     proc(value: string): Val =
@@ -285,41 +287,45 @@ proc buildFormat(ui: EditorUi) =
       result.put("gradientDirection", if value.len > 0: jstr(value) else: nil)
       result.put("gradient", nil),
     "Gradient", nodesOnly)
-  ui.styleInput(appearance, "gradient", "Gradient Color", "color",
+  ui.styleInput(fillCard, "gradient", "Gradient to", "color",
     proc(value: string): Val = o1("gradient", jstr(value)), "Gradient Color", nodesOnly)
-  ui.styleInput(appearance, "stroke", "Line", "color",
-    proc(value: string): Val = o1("stroke", jstr(value)), "Line Color")
-  ui.styleInput(appearance, "strokeWidth", "Line Width", "number",
+
+  let lineCard = card(stylePanel, "Line", "pen")
+  ui.styleColor(lineCard, "stroke", "Color", "stroke", "Line Color")
+  ui.styleInput(lineCard, "strokeWidth", "Width", "number",
     proc(value: string): Val = o1("strokeWidth", jnum(max(0.0, numVal(value, 0)))),
     "Line Width", nil, [("min", 0.0), ("max", 24.0), ("step", 0.5)])
-  ui.styleInput(appearance, "opacity", "Opacity %", "number",
+  ui.styleCheckbox(lineCard, "dashed", "Dashed",
+    proc(value: string): Val = o1("dashed", jbool(value.len > 0)), "Dashed")
+
+  let effects = card(stylePanel, "Effects", "shadow")
+  ui.styleRange(effects, "opacity", "Opacity",
     proc(value: string): Val = o1("opacity", jnum(max(0.0, min(1.0, jsNumber(value) / 100)))),
-    "Opacity", nil, [("min", 0.0), ("max", 100.0), ("step", 5.0)])
-  ui.styleInput(appearance, "radius", "Corner Radius", "number",
+    "Opacity", nil, [("min", 0.0), ("max", 100.0), ("step", 5.0)], "%")
+  ui.styleRange(effects, "radius", "Corners",
     proc(value: string): Val = o1("radius", jnum(max(0.0, numVal(value, 0)))),
     "Corner Radius", nodesOnly, [("min", 0.0), ("max", 80.0), ("step", 1.0)])
-  ui.styleCheckbox(appearance, "dashed", "Dashed",
-    proc(value: string): Val = o1("dashed", jbool(value.len > 0)), "Dashed")
-  ui.styleCheckbox(appearance, "shadow", "Shadow",
+  ui.styleCheckbox(effects, "shadow", "Shadow",
     proc(value: string): Val = o1("shadow", jbool(value.len > 0)), "Shadow", nodesOnly)
 
-  let connector = ui.createFormatSection(stylePanel, "Connector")
+  let connector = card(stylePanel, "Connector", "connector")
+  ui.formatFields["connectorCard"] = connector.getNode("parentNode")
   let connectorRoute = ui.styleSelect(connector, "lineStyle", "Route", [
     ("orthogonal", "Orthogonal"), ("straight", "Straight"), ("curved", "Curved"),
-    ("circular", "Circular Arc")],
+    ("circular", "Circular arc")],
     proc(value: string): Val =
       result = o1("lineStyle", jstr(value))
       result["route"] = jnull,
     "Connector Route", edgesOnly)
-  let arcSweepInput = ui.styleInput(connector, "arcSweep", "Arc Degrees", "number",
+  let arcSweepInput = ui.styleInput(connector, "arcSweep", "Arc degrees", "number",
     proc(value: string): Val = o1("arcSweep", jnum(max(1.0, min(360.0, numVal(value, 180))))),
     "Circular Arc Degrees", edgesOnly, [("min", 1.0), ("max", 360.0), ("step", 1.0)])
-  let arcSideInput = ui.styleSelect(connector, "arcSide", "Arc Side", [
-    ("1", "Left / Clockwise"), ("-1", "Right / Counterclockwise")],
+  let arcSideInput = ui.styleSelect(connector, "arcSide", "Arc side", [
+    ("1", "Left / clockwise"), ("-1", "Right / counterclockwise")],
     proc(value: string): Val = o1("arcSide", jnum(if jsNumber(value) < 0: -1.0 else: 1.0)),
     "Circular Arc Side", edgesOnly)
-  ui.formatFields["arcSweepRow"] = arcSweepInput.getNode("parentElement")
-  ui.formatFields["arcSideRow"] = arcSideInput.getNode("parentElement")
+  ui.formatFields["arcSweepRow"] = arcSweepInput.closest(".qg-field")
+  ui.formatFields["arcSideRow"] = arcSideInput.closest(".qg-field")
   proc updateArcRows() =
     let visible = connectorRoute.value == "circular"
     ui.formatFields["arcSweepRow"].hidden = not visible
@@ -328,28 +334,26 @@ proc buildFormat(ui: EditorUi) =
   connectorRoute.on("change", proc(e: Event) = updateArcRows())
   updateArcRows()
   let arrows = [("none", "None"), ("block", "Block"), ("open", "Open"), ("oval", "Oval"), ("diamond", "Diamond")]
-  ui.styleSelect(connector, "startArrow", "Start Arrow", arrows,
+  let arrowRow = fieldRow(connector)
+  ui.styleSelect(arrowRow, "startArrow", "Start", arrows,
     proc(value: string): Val = o1("startArrow", jstr(value)), "Start Arrow", edgesOnly)
-  ui.styleSelect(connector, "endArrow", "End Arrow", arrows,
+  ui.styleSelect(arrowRow, "endArrow", "End", arrows,
     proc(value: string): Val = o1("endArrow", jstr(value)), "End Arrow", edgesOnly)
-  ui.styleInput(connector, "arrowSize", "Arrow Size", "number",
+  ui.styleInput(connector, "arrowSize", "Arrow size", "number",
     proc(value: string): Val = o1("arrowSize", jnum(max(3.0, numVal(value, 9)))),
     "Arrow Size", edgesOnly, [("min", 3.0), ("max", 30.0), ("step", 1.0)])
 
-  let styleActions = ui.createFormatSection(stylePanel, "", false)
-  # Edit Style and Edit Media sit side by side at 100px.
-  ui.formatFields["editStyleButton"] = ui.formatButton(styleActions, "Edit Style…", proc() = ui.editStyle())
-  let editImage = ui.formatButton(styleActions, "Edit Media", proc() = ui.run("editImage"))
-  editImage.setAttribute("title", "Edit Media")
-  editImage.style("width", "100px")
-  editImage.style("marginLeft", "2px")
+  let styleActions = div0("qg-button-row")
+  stylePanel.appendChild(styleActions)
+  ui.formatFields["editStyleButton"] = ui.formatButton(styleActions, "Edit style…", proc() = ui.editStyle(), "code")
+  let editImage = ui.formatButton(styleActions, "Edit media…", proc() = ui.run("editImage"), "image")
   editImage.hidden = true
   ui.formatFields["editImageButton"] = editImage
-  ui.formatButton(styleActions, "Set as Default Style", proc() = ui.run("setDefaultStyle"))
+  ui.formatButton(styleActions, "Set as default", proc() = ui.run("setDefaultStyle"), "star")
 
   # Text ------------------------------------------------------------------
-  let text = ui.createFormatSection(textPanel, "Font")
-  ui.styleSelect(text, "fontFamily", "Font", [
+  let text = card(textPanel, "Font", "text")
+  ui.styleSelect(text, "fontFamily", "Typeface", [
     ("Arial, sans-serif", "Arial"), ("Helvetica, sans-serif", "Helvetica"),
     ("Verdana, sans-serif", "Verdana"), ("Georgia, serif", "Georgia"),
     ("Courier New, monospace", "Courier New")],
@@ -357,86 +361,91 @@ proc buildFormat(ui: EditorUi) =
   ui.styleInput(text, "fontSize", "Size", "number",
     proc(value: string): Val = o1("fontSize", jnum(max(6.0, numVal(value, 14)))),
     "Font Size", nodesOnly, [("min", 6.0), ("max", 144.0), ("step", 1.0)])
-  ui.styleInput(text, "textColor", "Color", "color",
-    proc(value: string): Val = o1("textColor", jstr(value)), "Text Color", nodesOnly)
-  ui.spriteRow(text, [
+  ui.styleColor(text, "textColor", "Color", "textColor", "Text Color", nodesOnly)
+  ui.actionIcons(text, [
     ("bold", "Bold", "bold"), ("italic", "Italic", "italic"),
     ("underline", "Underline", "underline"),
     ("superscript", "Superscript", "superscript"),
     ("subscript", "Subscript", "subscript"),
-    ("removeformat", "Clear Formatting", "removeFormat")])
+    ("eraser", "Clear formatting", "removeFormat")])
   # These act on the selected range while a label is open for editing.
-  ui.spriteRow(text, [
-    ("unorderedlist", "Bulleted List", "unorderedlist"),
-    ("orderedlist", "Numbered List", "orderedlist"),
-    ("indent", "Increase Indent", "indent"),
-    ("outdent", "Decrease Indent", "outdent"),
-    ("fontcolor", "Text Colour", "textColor")])
+  ui.actionIcons(text, [
+    ("listBullet", "Bulleted list", "unorderedlist"),
+    ("listNumber", "Numbered list", "orderedlist"),
+    ("indent", "Increase indent", "indent"),
+    ("outdent", "Decrease indent", "outdent"),
+    ("link", "Link", "editLink")])
   ui.styleCheckbox(text, "strikethrough", "Strikethrough",
     proc(value: string): Val = o1("strikethrough", jbool(value.len > 0)), "Strikethrough", nodesOnly)
-  ui.styleCheckbox(text, "wordWrap", "Word Wrap",
+  ui.styleCheckbox(text, "wordWrap", "Word wrap",
     proc(value: string): Val = o1("wordWrap", jbool(value.len > 0)), "Word Wrap", nodesOnly)
 
-  let align = ui.createFormatSection(textPanel, "Alignment")
-  ui.styleSelect(align, "textAlign", "Horizontal", [
+  let align = card(textPanel, "Alignment", "textCenter")
+  ui.actionIcons(align, [
+    ("textLeft", "Align text left", "textLeft"),
+    ("textCenter", "Align text center", "textCenter"),
+    ("textRight", "Align text right", "textRight")])
+  let alignRow = fieldRow(align)
+  ui.styleSelect(alignRow, "textAlign", "Horizontal", [
     ("left", "Left"), ("center", "Center"), ("right", "Right")],
     proc(value: string): Val = o1("textAlign", jstr(value)), "Text Align", nodesOnly)
-  ui.styleSelect(align, "verticalAlign", "Vertical", [
+  ui.styleSelect(alignRow, "verticalAlign", "Vertical", [
     ("top", "Top"), ("middle", "Middle"), ("bottom", "Bottom")],
     proc(value: string): Val = o1("verticalAlign", jstr(value)), "Vertical Align", nodesOnly)
-  ui.spriteRow(align, [
-    ("left", "Align Text Left", "textLeft"),
-    ("center", "Align Text Center", "textCenter"),
-    ("right", "Align Text Right", "textRight")])
 
   # Arrange ---------------------------------------------------------------
-  let arrangeAlign = ui.createFormatSection(arrangePanel, "Align")
-  ui.spriteRow(arrangeAlign, [
-    ("alignleft", "Align Left", "alignLeft"),
-    ("aligncenter", "Align Center", "alignCenter"),
-    ("alignright", "Align Right", "alignRight"),
-    ("aligntop", "Align Top", "alignTop"),
-    ("alignmiddle", "Align Middle", "alignMiddle"),
-    ("alignbottom", "Align Bottom", "alignBottom")])
-  ui.spriteRow(arrangeAlign, [
-    ("horizontalelbow", "Distribute Horizontally", "distributeHorizontal"),
-    ("verticalelbow", "Distribute Vertically", "distributeVertical")])
+  let arrangeAlign = card(arrangePanel, "Align & distribute", "alignLeft")
+  ui.actionIcons(arrangeAlign, [
+    ("alignLeft", "Align left", "alignLeft"),
+    ("alignCenter", "Align center", "alignCenter"),
+    ("alignRight", "Align right", "alignRight"),
+    ("alignTop", "Align top", "alignTop"),
+    ("alignMiddle", "Align middle", "alignMiddle"),
+    ("alignBottom", "Align bottom", "alignBottom")])
+  ui.actionIcons(arrangeAlign, [
+    ("distributeH", "Distribute horizontally", "distributeHorizontal"),
+    ("distributeV", "Distribute vertically", "distributeVertical")])
 
-  let order = ui.createFormatSection(arrangePanel, "Order")
-  ui.spriteRow(order, [
-    ("tofront", "To Front", "toFront"),
-    ("toback", "To Back", "toBack"),
+  let order = card(arrangePanel, "Order", "arrange")
+  ui.actionIcons(order, [
+    ("toFront", "Bring to front", "toFront"),
+    ("toBack", "Send to back", "toBack"),
     ("duplicate", "Duplicate", "duplicate"),
-    ("delete", "Delete", "delete")])
+    ("trash", "Delete", "delete")])
 
-  let group = ui.createFormatSection(arrangePanel, "Group")
-  ui.formatButton(group, "Group", proc() = ui.run("group"))
-  ui.formatButton(group, "Ungroup", proc() = ui.run("ungroup"))
-  ui.formatButton(group, "Lock / Unlock", proc() = ui.run("lock"))
+  let group = card(arrangePanel, "Group", "group")
+  ui.actionIcons(group, [
+    ("group", "Group", "group"),
+    ("ungroup", "Ungroup", "ungroup"),
+    ("lock", "Lock / unlock", "lock")])
 
-  let size = ui.createFormatSection(arrangePanel, "Size")
-  ui.styleInput(size, "width", "Width", "number",
+  let size = card(arrangePanel, "Geometry", "select")
+  let sizeRow = fieldRow(size)
+  ui.styleInput(sizeRow, "width", "W", "number",
     proc(value: string): Val = o1("width", jnum(max(1.0, numVal(value, 1)))),
     "Width", nodesOnly, [("min", 1.0), ("step", 1.0)])
-  ui.styleInput(size, "height", "Height", "number",
+  ui.styleInput(sizeRow, "height", "H", "number",
     proc(value: string): Val = o1("height", jnum(max(1.0, numVal(value, 1)))),
     "Height", nodesOnly, [("min", 1.0), ("step", 1.0)])
-  ui.styleInput(size, "positionX", "Position X", "number",
+  let posRow = fieldRow(size)
+  ui.styleInput(posRow, "positionX", "X", "number",
     proc(value: string): Val = o1("x", jnum(numVal(value, 0))), "Position", nodesOnly, [("step", 1.0)])
-  ui.styleInput(size, "positionY", "Position Y", "number",
+  ui.styleInput(posRow, "positionY", "Y", "number",
     proc(value: string): Val = o1("y", jnum(numVal(value, 0))), "Position", nodesOnly, [("step", 1.0)])
   ui.styleInput(size, "rotation", "Angle", "number",
     proc(value: string): Val = o1("rotation", jnum(numVal(value, 0))),
     "Angle", nodesOnly, [("min", -360.0), ("max", 360.0), ("step", 1.0)])
 
-  let flip = ui.createFormatSection(arrangePanel, "Flip")
-  ui.formatButton(flip, "Rotate 90°", proc() = ui.run("rotate90"))
-  ui.formatButton(flip, "Flip Horizontal", proc() = ui.run("flipHorizontal"))
-  ui.formatButton(flip, "Flip Vertical", proc() = ui.run("flipVertical"))
+  let flip = card(arrangePanel, "Transform", "rotate")
+  ui.actionIcons(flip, [
+    ("rotate", "Rotate 90°", "rotate90"),
+    ("flipH", "Flip horizontal", "flipHorizontal"),
+    ("flipV", "Flip vertical", "flipVertical")])
 
-  for panel in [stylePanel, textPanel, arrangePanel]:
-    for control in panel.queryAll("input,select,button"): ui.styleControls.add control
+  for page in [stylePanel, textPanel, arrangePanel]:
+    for c in page.queryAll("input,select,button"): ui.styleControls.add c
 
+  ui.rightDock.appendChild(root)
   ui.selectFormatTab("diagram")
 
 proc selectFormatTab*(ui: EditorUi, name: string) =
@@ -444,7 +453,8 @@ proc selectFormatTab*(ui: EditorUi, name: string) =
   ui.activeFormatTab = name
   for key, panel in ui.formatPanels:
     panel.hidden = key != name
-    ui.formatTabButtons[key].toggleClass("geActiveTab", key == name)
+    ui.formatTabButtons[key].toggleClass("is-active", key == name)
+    ui.formatTabButtons[key].setAttribute("aria-selected", if key == name: "true" else: "false")
 
 proc updateFormatTabs*(ui: EditorUi, hasSelection: bool) =
   ## Diagram when nothing is selected, Style/Text/Arrange otherwise.
@@ -493,9 +503,14 @@ proc updateFormat*(ui: EditorUi) =
   let single = if selection.len == 1: selection[0] else: nil
   let isImage = single != nil and (single.eqs("shape", "image") or not nullish(single["src"]))
   f["editImageButton"].hidden = not isImage
-  f["editStyleButton"].style("width", if isImage: "100px" else: "")
+  var hasEdge = false
+  for item in selection:
+    if edgesOnly(item): hasEdge = true
+  f["connectorCard"].hidden = selection.len > 0 and not hasEdge
 
-  if selection.len == 0: return
+  if selection.len == 0:
+    for sync in ui.rangeSyncs: sync()
+    return
 
   proc common(key: string, fallback: Val): Val = gv.getCommonStyle(key, fallback)
   let active = activeElement()
@@ -544,3 +559,4 @@ proc updateFormat*(ui: EditorUi) =
   set("positionX", rounded("x", 0))
   set("positionY", rounded("y", 0))
   set("rotation", rounded("rotation", 0))
+  for sync in ui.rangeSyncs: sync()

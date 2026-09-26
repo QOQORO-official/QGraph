@@ -1,15 +1,9 @@
 # Included from editorui.nim: dialogs (style/data editors, Edit Media,
 # HTML block, SVG import, whole-document editor) and autosave.
 
-proc dialogShell(ui: EditorUi, width: string, cls = "geDialog"): (Node, Node) =
-  let backdrop = div0("geDialogBackdrop")
-  let dialog = div0(cls)
-  if width.len > 0: dialog.style("width", width)
-  backdrop.appendChild(dialog)
-  (backdrop, dialog)
-
-proc button(label: string, cls = "geBtn"): Node =
+proc button(label: string, cls = "qg-btn"): Node =
   result = el("button", cls)
+  result.typ = "button"
   result.text = label
 
 proc editStyle*(ui: EditorUi) =
@@ -117,8 +111,8 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
     return
   let nodeId = idOf(node)
 
-  let (backdrop, dialog) = ui.dialogShell("min(720px, calc(100vw - 32px))", "geDialog geMediaDialog")
-  let heading = createElement("h2")
+  let (backdrop, dialog) = ui.dialogShell("min(720px, calc(100vw - 32px))", "qg-dialog qg-media-dialog")
+  let heading = el("h2", "qg-dialog-title")
   heading.text = "Edit Media"
 
   let draft = MediaDraft(src: valStr(node["src"]),
@@ -136,7 +130,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
   var natural = (0.0, 0.0)
   var hasNatural = false
 
-  let url = el("input", "geServerPathInput")
+  let url = el("input", "qg-input")
   url.typ = "text"
   url.setProp("placeholder", "YouTube, MP4, WebM, image or GIF URL")
   var urlLocked = false
@@ -144,10 +138,10 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
     urlLocked = draft.sourceLabel.len > 0 or isDataUri(draft.src)
     url.value = sourceSummary(draft.src, draft.mediaType, draft.sourceLabel)
     url.setProp("readOnly", urlLocked)
-    url.toggleClass("geMediaSourceSummary", urlLocked)
+    url.toggleClass("is-summary", urlLocked)
 
-  let replaceUrl = button("Replace URL…", "geBtn geMediaReplaceButton")
-  let sourceRow = div0("geMediaSourceRow")
+  let replaceUrl = button("Replace URL…", "qg-btn")
+  let sourceRow = div0("qg-media-source")
   sourceRow.appendChild(url)
   sourceRow.appendChild(replaceUrl)
   syncSourceField()
@@ -162,9 +156,9 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
   layerPicker.setProp("multiple", true)
   layerPicker.hidden = true
 
-  let preview = div0("geImagePreview")
+  let preview = div0("qg-media-preview")
   let previewCanvas = createElement("canvas")
-  let previewNote = div0("geImageNote")
+  let previewNote = div0("qg-media-note")
   preview.appendChild(previewCanvas)
   preview.appendChild(previewNote)
   let previewContext = previewCanvas.context2d()
@@ -208,7 +202,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
 
   proc describe(state, message: string) =
     previewNote.text = message
-    previewNote.className = "geImageNote " & state
+    previewNote.className = "qg-media-note " & state
 
   proc layerPlaybackBusy(layer: MediaDraft): bool =
     let src = if layer.previewSrc.len > 0: layer.previewSrc else: layer.src
@@ -261,8 +255,8 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
       natural = (16.0, 9.0)
       hasNatural = true
       previewState = "ok"
-      if pl.len > 0: describe("geImageError", "YouTube cannot be canvas-composited with parallax layers. Use MP4/WebM instead.")
-      else: describe("geImageOk", "YouTube · real-time streaming · no download")
+      if pl.len > 0: describe("is-error", "YouTube cannot be canvas-composited with parallax layers. Use MP4/WebM instead.")
+      else: describe("is-ok", "YouTube · real-time streaming · no download")
       return
     let item = newObj()
     item["id"] = jstr("media-preview")
@@ -304,14 +298,14 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
     if nextState != previewState or previewDirty:
       previewState = nextState
       if nextState == "error":
-        describe("geImageError", "That base media could not be loaded. Check the URL or choose a file.")
+        describe("is-error", "That base media could not be loaded. Check the URL or choose a file.")
       elif nextState == "loading":
-        describe("geImageEmpty", "Loading base media" &
+        describe("is-empty", "Loading base media" &
           (if pl.len > 0: " + " & $pl.len & " layer(s)…" else: "…"))
       else:
         natural = size
         hasNatural = true
-        describe("geImageOk", jsStr(size[0]) & " × " & jsStr(size[1]) & " px" &
+        describe("is-ok", jsStr(size[0]) & " × " & jsStr(size[1]) & " px" &
           (if isVideo(): " · streaming video" elif playback.isAnimated(source): " · animated" else: "") &
           (if pl.len > 0: " · " & $pl.len & " parallax layer(s)" else: ""))
 
@@ -340,7 +334,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
     if not loopRow.isNil: loopRow.hidden = not isVideo()
     if not volumeRow.isNil: volumeRow.hidden = not isVideo()
     if activeSource().len == 0:
-      describe("geImageEmpty", "No base media yet — paste a URL or choose an image, GIF, MP4 or WebM file.")
+      describe("is-empty", "No base media yet — paste a URL or choose an image, GIF, MP4 or WebM file.")
     paintPreview()
 
   proc cleanupDraftSource(owner: MediaDraft) =
@@ -356,7 +350,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
 
   proc encodeFileInto(owner: MediaDraft, file: Node, after: proc()) =
     if not validMediaFile(file):
-      describe("geImageError", "Choose an image, GIF, MP4 or WebM file.")
+      describe("is-error", "Choose an image, GIF, MP4 or WebM file.")
       return
     cleanupDraftSource(owner)
     let blobUrl = createObjectURL(file)
@@ -410,11 +404,11 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
     picker.value = "")
   preview.on("dragover", proc(e: Event) =
     e.preventDefault()
-    preview.addClass("geImageDropActive"))
-  preview.on("dragleave", proc(e: Event) = preview.removeClass("geImageDropActive"))
+    preview.addClass("is-drop-target"))
+  preview.on("dragleave", proc(e: Event) = preview.removeClass("is-drop-target"))
   preview.on("drop", proc(e: Event) =
     e.preventDefault()
-    preview.removeClass("geImageDropActive")
+    preview.removeClass("is-drop-target")
     let files = e.dataTransfer.getNode("files")
     let file = if not files.isNil and files.getNum("length") > 0: files.invoke("item", 0).toNode else: nilNode
     encodeFileInto(draft, file, syncSourceField))
@@ -430,7 +424,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
     previewDirty = true)
 
   proc row(labelText: string, control: Node): Node =
-    result = el("label", "geFormatRow")
+    result = el("label", "qg-field")
     let caption = createElement("span")
     caption.text = labelText
     result.appendChild(caption)
@@ -446,7 +440,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
       previewDirty = true)
     element
 
-  let options = div0("geImageOptions")
+  let options = div0("qg-media-options")
   options.appendChild(row("Fit", selectControl([
     ("contain", "Fit inside (keep ratio)"), ("cover", "Fill box (crop)"),
     ("stretch", "Stretch to box"), ("none", "Natural size"), ("tile", "Tile")],
@@ -488,11 +482,11 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
   alt.on("input", proc(e: Event) = tooltip = alt.value)
   options.appendChild(row("Alt text", alt))
 
-  let layersSection = div0("geMediaLayers")
-  let layersHeader = div0("geMediaLayersHeader")
-  let layersTitle = div0("geMediaLayersTitle")
+  let layersSection = div0("qg-media-layers")
+  let layersHeader = div0("qg-media-layers-head")
+  let layersTitle = div0("qg-media-layers-title")
   layersTitle.html = "<strong>Parallax Layers</strong><span>Back → front. Depth reacts to pointer; scroll values are px/s.</span>"
-  let layerActions = div0("geMediaLayerActions")
+  let layerActions = div0("qg-media-layer-actions")
   let addLayerUrl = button("+ URL Layer")
   let addLayerFile = button("+ File Layer…")
   layerActions.appendChild(addLayerUrl)
@@ -500,7 +494,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
   layersHeader.appendChild(layersTitle)
   layersHeader.appendChild(layerActions)
   layersSection.appendChild(layersHeader)
-  let layersList = div0("geMediaLayerList")
+  let layersList = div0("qg-media-layer-list")
   layersSection.appendChild(layersList)
 
   proc layerNumberInput(value, min, max, step: float64, handler: proc(value: float64)): Node =
@@ -519,7 +513,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
   proc renderLayers(focusIndex = -1) =
     layersList.dropChildren()
     if layers.len == 0:
-      let empty = div0("geMediaLayerEmpty")
+      let empty = div0("qg-media-empty")
       empty.text = "No extra layers. Add images/GIFs/MP4/WebM for depth or moving scenery."
       layersList.appendChild(empty)
       previewDirty = true
@@ -527,14 +521,14 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
     for index, layer in layers:
       let i = index
       let layer = layer
-      let card = div0("geMediaLayerCard")
-      let header = div0("geMediaLayerCardHeader")
+      let card = div0("qg-media-layer")
+      let header = div0("qg-media-layer-head")
       let name = createElement("strong")
       name.text = "Layer " & $(i + 1) & (if i == 0: " · back"
         elif i == layers.len - 1: " · front" else: "")
-      let buttons = div0("geMediaLayerCardButtons")
+      let buttons = div0("qg-media-layer-buttons")
       proc mini(label, title: string, handler: proc(), disabled: bool): Node =
-        result = button(label, "geBtn geMediaLayerMiniBtn")
+        result = button(label, "qg-btn qg-btn-sm")
         result.typ = "button"
         result.title = title
         result.disabled = disabled
@@ -560,14 +554,14 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
       header.appendChild(buttons)
       card.appendChild(header)
 
-      let sourceLine = div0("geMediaLayerSourceRow")
-      let sourceInput = el("input", "geServerPathInput")
+      let sourceLine = div0("qg-media-source")
+      let sourceInput = el("input", "qg-input")
       sourceInput.typ = "text"
       sourceInput.setProp("placeholder", "Image, GIF, MP4 or WebM URL")
       let locked = layer.sourceLabel.len > 0 or isDataUri(layer.src)
       sourceInput.value = sourceSummary(layer.src, layer.mediaType, layer.sourceLabel)
       sourceInput.setProp("readOnly", locked)
-      sourceInput.toggleClass("geMediaSourceSummary", locked)
+      sourceInput.toggleClass("is-summary", locked)
       sourceInput.on("input", proc(e: Event) =
         if locked: return
         layer.src = jsTrim(sourceInput.value)
@@ -575,7 +569,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
         previewDirty = true)
       sourceInput.on("change", proc(e: Event) = loadPreview())
       sourceLine.appendChild(sourceInput)
-      let replace = button(if locked: "Replace URL…" else: "Clear", "geBtn geMediaLayerReplaceBtn")
+      let replace = button(if locked: "Replace URL…" else: "Clear", "qg-btn qg-btn-sm")
       replace.on("click", proc(e: Event) =
         cleanupDraftSource(layer)
         layer.src = ""
@@ -585,7 +579,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
       sourceLine.appendChild(replace)
       card.appendChild(sourceLine)
 
-      let controls = div0("geMediaLayerControls")
+      let controls = div0("qg-media-layer-controls")
       proc control(label: string, input: Node) =
         let item = createElement("label")
         let caption = createElement("span")
@@ -664,7 +658,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
     ui.toast("Media removed"))
   let cancel = button("Cancel")
   cancel.on("click", proc(e: Event) = close())
-  let apply = button("OK", "geBtn gePrimaryBtn")
+  let apply = button("OK", "qg-btn qg-btn-primary")
   apply.on("click", proc(e: Event) =
     proc commitMedia() =
       if draft.src.len == 0:
@@ -704,7 +698,7 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
     else:
       commitMedia())
 
-  let footer = div0("geDialogButtons geMediaDialogButtons")
+  let footer = div0("qg-dialog-actions qg-media-actions")
   for b in [chooseFile, resetRatio, remove, cancel, apply]: footer.appendChild(b)
   for child in [heading, sourceRow, preview, options, layersSection, picker, layerPicker, footer]:
     dialog.appendChild(child)
@@ -770,17 +764,17 @@ proc editHtml*(ui: EditorUi, target: Val = nil) =
   let node = if target != nil and target.eqs("shape", "html"): target else: nil
   let creating = node == nil
   let (backdrop, dialog) = ui.dialogShell("min(680px, calc(100vw - 32px))")
-  let heading = createElement("h2")
+  let heading = el("h2", "qg-dialog-title")
   heading.text = if creating: "Insert HTML Block" else: "Edit HTML"
-  let hint = createElement("p")
+  let hint = el("p", "qg-dialog-text")
   hint.text = "Headings, paragraphs, lists, bold, italic, underline, " &
     "colours and font sizes are rendered on the canvas. Scripts and embeds are ignored."
-  let area = el("textarea", "geDiagramSource")
+  let area = el("textarea", "qg-code")
   area.style("height", "32vh")
   area.setProp("spellcheck", false)
   area.value = if node != nil: valStr(node["html"])
     else: "<h3>Title</h3><p>Some <b>rich</b> text.</p><ul><li>One</li><li>Two</li></ul>"
-  let preview = div0("geHtmlPreview")
+  let preview = div0("qg-html-preview")
   let previewCanvas = createElement("canvas")
   preview.appendChild(previewCanvas)
   let previewContext = previewCanvas.context2d()
@@ -808,7 +802,7 @@ proc editHtml*(ui: EditorUi, target: Val = nil) =
   area.on("input", proc(e: Event) = refreshPreview())
   let cancel = button("Cancel")
   cancel.on("click", proc(e: Event) = backdrop.dropTree())
-  let apply = button(if creating: "Insert" else: "OK", "geBtn gePrimaryBtn")
+  let apply = button(if creating: "Insert" else: "OK", "qg-btn qg-btn-primary")
   let nodeId = if node != nil: idOf(node) else: ""
   apply.on("click", proc(e: Event) =
     let html = area.value
@@ -825,7 +819,7 @@ proc editHtml*(ui: EditorUi, target: Val = nil) =
       changes["text"] = jstr(toPlain(model))
       discard gv.updateItem(nodeId, changes, "Edit HTML", true)
     backdrop.dropTree())
-  let footer = div0("geDialogButtons")
+  let footer = div0("qg-dialog-actions")
   footer.appendChild(cancel)
   footer.appendChild(apply)
   for child in [heading, hint, area, preview, footer]: dialog.appendChild(child)
@@ -944,16 +938,16 @@ proc insertImportedItems*(ui: EditorUi, items: seq[Val], idPrefix = "import",
 
 proc showSvgToMxGraphDialog*(ui: EditorUi) =
   let (backdrop, dialog) = ui.dialogShell("min(760px, calc(100vw - 32px))")
-  let heading = createElement("h2")
+  let heading = el("h2", "qg-dialog-title")
   heading.text = "SVG to mxGraph"
-  let description = createElement("p")
+  let description = el("p", "qg-dialog-text")
   description.text = "Paste SVG markup or choose an SVG file. Supported elements are inserted as editable diagram objects."
   let file = createElement("input")
   file.typ = "file"
   file.setProp("accept", ".svg,image/svg+xml")
   file.style("display", "block")
   file.style("marginBottom", "10px")
-  let area = el("textarea", "geDiagramSource")
+  let area = el("textarea", "qg-code")
   area.setProp("placeholder", "<svg viewBox=\"0 0 300 200\">…</svg>")
   area.setProp("spellcheck", false)
   let status = createElement("div")
@@ -993,7 +987,7 @@ proc showSvgToMxGraphDialog*(ui: EditorUi) =
   area.on("input", proc(e: Event) = discard inspect())
   let cancel = button("Cancel")
   cancel.on("click", proc(e: Event) = backdrop.dropTree())
-  let insert = button("Insert into Diagram", "geBtn gePrimaryBtn")
+  let insert = button("Insert into Diagram", "qg-btn qg-btn-primary")
   insert.on("click", proc(e: Event) =
     let (ok, r) = inspect()
     if not ok: return
@@ -1002,7 +996,7 @@ proc showSvgToMxGraphDialog*(ui: EditorUi) =
     let created = ui.insertImportedItems(list, "svg-import", "Insert SVG")
     backdrop.dropTree()
     ui.toast("Inserted " & $created.len & " SVG object" & (if created.len == 1: "" else: "s")))
-  let footer = div0("geDialogButtons")
+  let footer = div0("qg-dialog-actions")
   footer.appendChild(cancel)
   footer.appendChild(insert)
   for child in [heading, description, file, area, status, footer]: dialog.appendChild(child)
@@ -1014,14 +1008,14 @@ proc editDiagram*(ui: EditorUi) =
   ## Whole-document editor, the canvas equivalent of Extras > Edit Diagram.
   let gv = ui.graph
   let (backdrop, dialog) = ui.dialogShell("min(760px, calc(100vw - 32px))")
-  let heading = createElement("h2")
+  let heading = el("h2", "qg-dialog-title")
   heading.text = "Edit Diagram"
-  let area = el("textarea", "geDiagramSource")
+  let area = el("textarea", "qg-code")
   area.value = gv.toJSON()
   area.setProp("spellcheck", false)
   let cancel = button("Cancel")
   cancel.on("click", proc(e: Event) = backdrop.dropTree())
-  let apply = button("OK", "geBtn gePrimaryBtn")
+  let apply = button("OK", "qg-btn qg-btn-primary")
   apply.on("click", proc(e: Event) =
     try:
       gv.fromJSON(parseJson(area.value))
@@ -1029,7 +1023,7 @@ proc editDiagram*(ui: EditorUi) =
       ui.toast("Diagram replaced")
     except CatchableError as error:
       ui.toast("Invalid document: " & error.msg))
-  let footer = div0("geDialogButtons")
+  let footer = div0("qg-dialog-actions")
   footer.appendChild(cancel)
   footer.appendChild(apply)
   dialog.appendChild(heading)

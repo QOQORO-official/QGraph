@@ -21,7 +21,7 @@ const dir = path.join(__dirname, 'golden');
   fs.mkdirSync(dir, { recursive: true });
   for (const sc of scenarios) {
     if (filter && !sc.name.includes(filter)) continue;
-    const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+    const page = await browser.newPage({ viewport: scenarios.viewport });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });

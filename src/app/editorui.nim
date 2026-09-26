@@ -1,16 +1,17 @@
-## The classic GraphEditor shell -- menubar, toolbar, sidebar, split, format
-## panel, footer, popups and dialogs -- hosting the canvas diagram view.
-## The container markup and geometry match the classic grapheditor exactly;
-## only the diagram viewport is canvas instead of SVG.
+## QGraph Studio -- the editor shell around the canvas view: top bar, tool
+## rail, shape library, inspector, floating quick-style bar and zoom dock on
+## wide screens; an app bar, bottom tab bar and bottom sheets on phones.
 ##
-## Everything here is DOM built through qweb's command buffer: creating the
-## whole shell, every palette thumbnail included, is a handful of flushes.
+## Every panel (library, inspector, layers, outline, menu) is built once and
+## re-hosted by the layout controller (ui_layout) as the viewport changes:
+## docked, drawer, floating card or bottom sheet. All of it is DOM built
+## through qweb's command buffer.
 
-import std/[tables, sets, strutils, math, algorithm]
+import std/[tables, sets, strutils, math]
 import ../jsval, ../host, ../geometry, ../graph, ../canvas, ../painter, ../richtext
 import ../web/qweb
 import jsutil, media, view, overlay, data, legacy, mxformat, svgconvert, stencilxml, shapesvg,
-  richhtml, wire
+  richhtml, icons, renderer
 
 type
   Predicate = proc(item: Val): bool
@@ -53,17 +54,23 @@ type
     classicCache: Table[string, Val]
     originalPalettes: seq[Palette]
     container, originalPanel: Node
+    blocksSection: Section
+    setCategory: proc(key: string)
 
   Toolbar = ref object
     controls: Table[string, Node]
 
+  LayoutMode = enum lmDesktop, lmTablet, lmPhone
+
   EditorUi* = ref object
     container*: Node
-    menubarContainer, toolbarContainer, sidebarContainer*, formatContainer*: Node
-    diagramContainer, footerContainer, hsplit, diagram: Node
+    topbar, menubar, rail, workspace, leftDock, rightDock, stage, diagram: Node
+    quickbar, zoomDock, zoomLabel, statusChip, statusLeft, statusRight, selPill: Node
+    tabbar, sheetBackdrop, sheet, sheetTitle, sheetBody, floatLayer: Node
+    docName, themeButton, inspectorToggle: Node
     fileInput, toastElement, imageInput: Node
-    menubar, appMark, statusContainer, documentTitle, toolbarElement: Node
-    statusLeft, statusRight: Node
+    libraryPanel, inspectorPanel, layersPanel, outlinePanel, menuPanel: Node
+    layersCard, outlineCard: Node
     contextMenu: Node
     contextMenuBaseEntries: seq[string]
     contextPoint*: Val
@@ -75,10 +82,14 @@ type
     menuDefinitions: seq[(string, seq[string])]
     toolbar: Toolbar
     sidebar: Sidebar
-    menubarHeight, toolbarHeight, footerHeight, formatWidth*, hsplitPosition: float64
-    lastHsplitPosition: float64
-    splitSize: float64
-    hsplitClickEnabled: bool
+    layout: LayoutMode
+    layoutKnown: bool
+    libraryOpen, inspectorOpen: bool
+    sheetPanel: Node
+    sheetOpen: bool
+    tabButtons: OrderedTable[string, Node]
+    railButtons: Table[string, Node]
+    theme: string
     formatTabs: Node
     formatPanels: OrderedTable[string, Node]
     formatTabButtons: OrderedTable[string, Node]
@@ -86,11 +97,12 @@ type
     activeFormatTab: string
     formatFields: Table[string, Node]
     styleControls: seq[Node]
+    rangeSyncs: seq[proc()]
     liveEdit: HashSet[int32]
     paperFormats: seq[(string, string)]
     toastTimer: int32
-    layersWindow, layersBody: Node
-    outlineWindow, outlineBody, outlineCanvas, outlineContext: Node
+    layersBody: Node
+    outlineBody, outlineCanvas, outlineContext: Node
     outlineMapping: (float64, float64, float64)
     hasOutlineMapping: bool
     outlinePainter: ScenePainter
@@ -151,6 +163,8 @@ proc entries(names: openArray[string]): seq[MenuEntry] =
 proc run*(ui: EditorUi, name: string)
 proc toast*(ui: EditorUi, message: string)
 proc refresh*(ui: EditorUi, sizeDidChange = true)
+proc openPanel*(ui: EditorUi, name: string, tab = "")
+proc closeSheet(ui: EditorUi)
 proc updateFormat*(ui: EditorUi)
 proc updateStatus*(ui: EditorUi, stats: Val = nil)
 proc updateFormatTabs*(ui: EditorUi, hasSelection: bool)
@@ -170,9 +184,12 @@ proc toggleAutosave*(ui: EditorUi)
 proc showDialog*(ui: EditorUi, title, message: string)
 proc togglePane*(ui: EditorUi, name: string)
 proc addToScratchpad(ui: EditorUi, node: Val = nil)
+proc insertBlockJson(ui: EditorUi, json: string, point: Val = nil)
 proc addStencilPalettes(ui: EditorUi)
 
 include editor_doc
+include ui_components
+include ui_layout
 include ui_shell
 include ui_format
 include ui_windows
@@ -184,15 +201,16 @@ include sidebar
 # ------------------------------------------------------------------ startup --
 
 proc newEditorUi*(host: Node = body): EditorUi =
-  let ui = EditorUi(container: host, menubarHeight: 30, toolbarHeight: 38, footerHeight: 28,
-                    formatWidth: 240, splitSize: 12, hsplitClickEnabled: true)
-  ui.hsplitPosition = if window.getNode("screen").getNum("width") <= 640: 118 else: 212
-  ui.container.className = "geEditor"
+  let ui = EditorUi(container: host, libraryOpen: true, inspectorOpen: true)
+  ui.container.className = "qg-app"
   ui.container.html = ""
-  ui.createDivs()
-  ui.refresh(false)
+  ui.theme = ui.initialTheme()
+  documentElement.setData("theme", ui.theme)
+  ui.createShell()
 
   ui.editor = newEditor(ui.diagram)
+  # Touch drags on empty canvas pan instead of starting a marquee.
+  ui.graph.g.mobileMode = true
   ui.installActions()
   ui.installMenus()
   ui.toolbar = Toolbar()
@@ -200,7 +218,7 @@ proc newEditorUi*(host: Node = body): EditorUi =
 
   ui.createUi()
   ui.bindEvents()
-  ui.refresh()
+  ui.applyLayout()
 
   # Start on a blank canvas. A host that wants a document supplies one.
   ui.editor.newDocument()
