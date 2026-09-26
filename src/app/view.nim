@@ -22,6 +22,7 @@ type
   TextEditorDom = object
     open: bool
     element, field: Node
+    range: Node
     tabbable: bool
 
   View* = ref object
@@ -38,6 +39,7 @@ type
     pinchMid: Pt
     pinchDist, pinchZoom: float64
     textEditor: TextEditorDom
+    keepTextEditorOnBlur: bool
     tooltipElement: Node
     tooltipFor: string
     tooltipTimer: int32
@@ -275,6 +277,54 @@ proc finishTextEdit*(v: View, commit = true) =
   if v.destroyed: return
   v.g.finishTextEdit(commit)
 
+proc captureTextSelection*(v: View) =
+  if not v.textEditor.open: return
+  let selection = document.invoke("getSelection").toNode
+  if selection.isNil or selection.getNum("rangeCount") < 1:
+    if same(activeElement(), v.textEditor.field): v.textEditor.range = nilNode
+    return
+  let range = selection.invoke("getRangeAt", 0).toNode
+  if range.isNil or range.getBool("collapsed"):
+    if same(activeElement(), v.textEditor.field): v.textEditor.range = nilNode
+    return
+  if not v.textEditor.field.contains(range.getNode("startContainer")) or
+      not v.textEditor.field.contains(range.getNode("endContainer")):
+    if same(activeElement(), v.textEditor.field): v.textEditor.range = nilNode
+    return
+  v.textEditor.range = range.invoke("cloneRange").toNode
+
+proc hasSelectedTextRange*(v: View): bool =
+  v.textEditor.open and not v.textEditor.range.isNil
+
+proc retainTextEditorForInspector*(v: View) =
+  if not v.textEditor.open: return
+  v.captureTextSelection()
+  v.keepTextEditorOnBlur = v.hasSelectedTextRange()
+
+proc execSelectedTextStyle*(v: View, command: string, value = "", hasValue = false): bool =
+  ## Apply an inspector control to the selected words in the open label.
+  if not v.hasSelectedTextRange(): return false
+  let saved = v.textEditor.range
+  v.textEditor.field.focus(preventScroll = true)
+  let selection = document.invoke("getSelection").toNode
+  if selection.isNil: return false
+  selection.call("removeAllRanges")
+  selection.call("addRange", saved)
+  if command == "fontSizePx":
+    # execCommand splits complex selections into valid inline elements. Turn
+    # only the newly created size-7 wrappers into the requested pixel size.
+    for old in v.textEditor.field.queryAll("font[size='7']"):
+      old.setData("qgPreexistingSize", "true")
+    result = execCommand("fontSize", "7", true)
+    for font in v.textEditor.field.queryAll("font[size='7']"):
+      if font.get2("dataset", "qgPreexistingSize").toStr != "true":
+        font.style("fontSize", value & "px")
+        font.removeAttribute("size")
+      else: font.deleteData("qgPreexistingSize")
+  else:
+    result = execCommand(command, value, hasValue)
+  v.captureTextSelection()
+
 proc openTextEditor(v: View, d: Val) =
   let editor = el("div", "pixel-text-editor")
   # A child of the scrolling world, so DOM-world coordinates.
@@ -317,6 +367,7 @@ proc openTextEditor(v: View, d: Val) =
 
   field.focus(preventScroll = true)
   selectContents(field)
+  v.captureTextSelection()
 
   field.on("keydown", proc(e: Event) =
     let key = e.key
@@ -329,7 +380,17 @@ proc openTextEditor(v: View, d: Val) =
       return
     e.stopPropagation())
   field.on("pointerdown", proc(e: Event) = e.stopPropagation())
-  field.on("blur", proc(e: Event) = v.finishTextEdit(true), once = true)
+  field.on("keyup", proc(e: Event) = v.captureTextSelection())
+  field.on("mouseup", proc(e: Event) = v.captureTextSelection())
+  field.on("blur", proc(e: Event) =
+    if v.keepTextEditorOnBlur:
+      v.keepTextEditorOnBlur = false
+      return
+    let next = e.relatedTarget
+    if not next.isNil and not next.closest(".qg-panel-inspector").isNil:
+      v.captureTextSelection()
+      return
+    v.finishTextEdit(true))
   v.emit("texteditstart")
 
 proc closeTextEditor(v: View): (string, Val) =
@@ -355,6 +416,7 @@ proc isEditingText*(v: View): bool = v.textEditor.open
 proc execTextCommand*(v: View, command: string, value = "", hasValue = false): bool =
   ## Runs a browser editing command inside the open label.
   if not v.textEditor.open: return false
+  if v.hasSelectedTextRange(): return v.execSelectedTextStyle(command, value, hasValue)
   v.textEditor.field.focus(preventScroll = true)
   execCommand(command, value, hasValue)
 

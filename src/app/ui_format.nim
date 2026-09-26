@@ -56,7 +56,8 @@ proc select(ui: EditorUi, section: Node, key, label: string, values: openArray[(
   select
 
 proc bindLiveStyle(ui: EditorUi, control: Node, build: Build, commitLabel: string,
-                   predicate: Predicate = nil, read: proc(): string = nil): Node {.discardable.} =
+                   predicate: Predicate = nil, read: proc(): string = nil,
+                   textCommand = ""): Node {.discardable.} =
   ## Live style editing against a latched target.
   ##
   ## A native colour picker reports its value while open and again when it
@@ -69,23 +70,30 @@ proc bindLiveStyle(ui: EditorUi, control: Node, build: Build, commitLabel: strin
   var open = false
   var ids: Val = nil
   var before = ""
+  var textRange = false
   proc begin() =
     if open or control.getBool("disabled"): return
     open = true
-    ids = g.getStyleTargetIds(predicate)
-    before = g.snapshot()
+    textRange = textCommand.len > 0 and g.hasSelectedTextRange()
+    if not textRange:
+      ids = g.getStyleTargetIds(predicate)
+      before = g.snapshot()
     # While a session is open the control owns its value, so a refresh the
     # edit triggers cannot write over it.
     ui.liveEdit.incl control.id
   proc preview() =
     begin()
-    if open: discard g.call("previewStyle", ids, build(readValue()))
+    if not open: return
+    if not textRange: discard g.call("previewStyle", ids, build(readValue()))
   proc commit() =
     if not open: return
     open = false
-    discard g.call("previewStyle", ids, build(readValue()))
     ui.liveEdit.excl control.id
-    g.g.commitPreview(before, commitLabel)
+    if textRange:
+      discard g.execSelectedTextStyle(textCommand, readValue(), textCommand != "strikeThrough")
+    else:
+      discard g.call("previewStyle", ids, build(readValue()))
+      g.g.commitPreview(before, commitLabel)
   control.on("pointerdown", proc(e: Event) = begin())
   control.on("focus", proc(e: Event) = begin())
   control.on("keydown", proc(e: Event) = begin())
@@ -95,11 +103,12 @@ proc bindLiveStyle(ui: EditorUi, control: Node, build: Build, commitLabel: strin
   control
 
 proc styleInput(ui: EditorUi, section: Node, key, label, kind: string, build: Build,
-                commitLabel: string, predicate: Predicate = nil, options: InputOptions = []): Node {.discardable.} =
+                commitLabel: string, predicate: Predicate = nil, options: InputOptions = [],
+                textCommand = ""): Node {.discardable.} =
   let input = control(kind, options)
   field(section, label, input)
   ui.formatFields[key] = input
-  ui.bindLiveStyle(input, build, commitLabel, predicate)
+  ui.bindLiveStyle(input, build, commitLabel, predicate, textCommand = textCommand)
 
 proc styleRange(ui: EditorUi, section: Node, key, label: string, build: Build, commitLabel: string,
                 predicate: Predicate, options: InputOptions, suffix = ""): Node {.discardable.} =
@@ -120,27 +129,31 @@ proc styleColor(ui: EditorUi, section: Node, key, label: string, property: strin
                 predicate: Predicate = nil): Node {.discardable.} =
   ## A colour field with one-tap presets underneath.
   let input = ui.styleInput(section, key, label, "color",
-    proc(value: string): Val = o1(property, jstr(value)), commitLabel, predicate)
+    proc(value: string): Val = o1(property, jstr(value)), commitLabel, predicate,
+    textCommand = (if property == "textColor": "foreColor" else: ""))
   swatchRow(section, proc(color: string) =
-    ui.graph.applyStyle(o1(property, jstr(color)), commitLabel, predicate)
+    if property != "textColor" or not ui.graph.execSelectedTextStyle("foreColor", color, true):
+      ui.graph.applyStyle(o1(property, jstr(color)), commitLabel, predicate)
     input.value = color)
   input
 
 proc styleCheckbox(ui: EditorUi, section: Node, key, label: string, build: Build,
-                   commitLabel: string, predicate: Predicate = nil): Node {.discardable.} =
+                   commitLabel: string, predicate: Predicate = nil,
+                   textCommand = ""): Node {.discardable.} =
   let input = control("checkbox")
   field(section, label, input, "qg-field-switch")
   ui.formatFields[key] = input
   ui.bindLiveStyle(input, build, commitLabel, predicate,
-    proc(): string = (if input.checked: "true" else: ""))
+    proc(): string = (if input.checked: "true" else: ""), textCommand)
 
 proc styleSelect(ui: EditorUi, section: Node, key, label: string, values: openArray[(string, string)],
-                 build: Build, commitLabel: string, predicate: Predicate = nil): Node {.discardable.} =
+                 build: Build, commitLabel: string, predicate: Predicate = nil,
+                 textCommand = ""): Node {.discardable.} =
   let select = el("select", "qg-select")
   select.fillOptions(values)
   field(section, label, select)
   ui.formatFields[key] = select
-  ui.bindLiveStyle(select, build, commitLabel, predicate)
+  ui.bindLiveStyle(select, build, commitLabel, predicate, textCommand = textCommand)
 
 proc actionIcons(ui: EditorUi, section: Node, list: openArray[(string, string, string)]): Node {.discardable.} =
   ## A row of icon buttons that run actions, e.g. the alignment controls.
@@ -167,6 +180,7 @@ proc buildFormat(ui: EditorUi) =
   let (root, content) = panel("Inspector", "inspector", proc() =
     if ui.layout == lmPhone: ui.closeSheet() else: ui.togglePane("inspector"))
   ui.inspectorPanel = root
+  root.on("pointerdown", proc(e: Event) = ui.graph.retainTextEditorForInspector(), capture = true)
   ui.formatTabs = div0("qg-segmented qg-inspector-tabs")
   ui.formatTabs.setAttribute("role", "tablist")
   content.appendChild(ui.formatTabs)
@@ -359,10 +373,10 @@ proc buildFormat(ui: EditorUi) =
     ("Arial, sans-serif", "Arial"), ("Helvetica, sans-serif", "Helvetica"),
     ("Verdana, sans-serif", "Verdana"), ("Georgia, serif", "Georgia"),
     ("Courier New, monospace", "Courier New")],
-    proc(value: string): Val = o1("fontFamily", jstr(value)), "Font", nodesOnly)
+    proc(value: string): Val = o1("fontFamily", jstr(value)), "Font", nodesOnly, "fontName")
   ui.styleInput(text, "fontSize", "Size", "number",
     proc(value: string): Val = o1("fontSize", jnum(max(6.0, numVal(value, 14)))),
-    "Font Size", nodesOnly, [("min", 6.0), ("max", 144.0), ("step", 1.0)])
+    "Font Size", nodesOnly, [("min", 6.0), ("max", 144.0), ("step", 1.0)], "fontSizePx")
   ui.styleColor(text, "textColor", "Color", "textColor", "Text Color", nodesOnly)
   ui.actionIcons(text, [
     ("bold", "Bold", "bold"), ("italic", "Italic", "italic"),
@@ -378,7 +392,8 @@ proc buildFormat(ui: EditorUi) =
     ("outdent", "Decrease indent", "outdent"),
     ("link", "Link", "editLink")])
   ui.styleCheckbox(text, "strikethrough", "Strikethrough",
-    proc(value: string): Val = o1("strikethrough", jbool(value.len > 0)), "Strikethrough", nodesOnly)
+    proc(value: string): Val = o1("strikethrough", jbool(value.len > 0)), "Strikethrough", nodesOnly,
+    "strikeThrough")
   ui.styleCheckbox(text, "wordWrap", "Word wrap",
     proc(value: string): Val = o1("wordWrap", jbool(value.len > 0)), "Word Wrap", nodesOnly)
 

@@ -132,6 +132,29 @@ proc commitBlockField(ui: EditorUi, id, key, value: string) =
   vs.put(key, jstr(value))
   discard ui.graph.updateItem(id, o1("visualScript", vs), "Edit Block", record = true)
 
+proc saveBlockInspector(ui: EditorUi, id: string) =
+  ## Flush the current form, including a code textarea whose debounce has
+  ## not fired yet, as one document edit.
+  let rt = ui.script
+  clearTimeout(rt.codeTimer)
+  let item = ui.graph.g.getItem(id)
+  if not isScriptBlock(item) or rt.inspectedId != id: return
+  let vs = if item["visualScript"].isObj: clone(item["visualScript"]) else: newObj()
+  let changes = newObj()
+  var dirty = false
+  for control in rt.inspectorBody.queryAll("[data-field]"):
+    let key = control.get2("dataset", "field").toStr
+    if key == "__title":
+      if valStr(item["text"]) != control.value:
+        changes["text"] = jstr(control.value)
+        dirty = true
+    elif blockField(item, key) != control.value:
+      vs.put(key, jstr(control.value))
+      dirty = true
+  if not dirty: return
+  changes["visualScript"] = vs
+  discard ui.graph.updateItem(id, changes, "Save Block", record = true)
+
 proc blockOutputText(item: Val): (string, string) =
   let error = blockField(item, "lastError")
   if error.len > 0: return ("error", error)
@@ -233,11 +256,15 @@ proc buildScriptInspector(ui: EditorUi, item: Val) =
     body.appendChild(note)
 
   let actions = div0("qg-button-row")
+  let save = textButton("Save", "qg-btn qg-btn-soft", "save")
+  save.setAttribute("title", "Save this block's title and values")
+  save.on("click", proc(e: Event) = ui.saveBlockInspector(id))
   rt.inspectorRun = textButton("Run from here", "qg-btn qg-btn-primary", "play")
   rt.inspectorRun.disabled = rt.running
   rt.inspectorRun.on("click", proc(e: Event) = ui.runScript(@[id]))
   let all = textButton("Run all", "qg-btn qg-btn-soft", "flag")
   all.on("click", proc(e: Event) = ui.runScript())
+  actions.appendChild(save)
   actions.appendChild(rt.inspectorRun)
   actions.appendChild(all)
   body.appendChild(actions)
