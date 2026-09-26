@@ -2298,13 +2298,16 @@ button {
 
 .qg-app[data-layout="phone"].has-selection .qg-selpill {
     display: flex;
-    left: 50%;
-    bottom: 14px;
-    max-width: calc(100% - 16px);
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 14px);
+    width: auto;
+    max-width: none;
     gap: 2px;
     padding: 4px;
     border-radius: 999px;
-    transform: translateX(-50%);
+    transform: none;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
     scrollbar-width: none;
