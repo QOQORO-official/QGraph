@@ -2523,3 +2523,426 @@ button {
     background: var(--surface);
     text-align: center;
 }
+
+/* ---------------------------------------------------------------- script -- */
+
+/* Script tab: Run bar, block palette, console. */
+
+.qg-script-runbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: linear-gradient(var(--surface) 80%, transparent);
+}
+
+.qg-btn-run {
+    flex: 1;
+    height: 38px;
+    font-size: 14px;
+}
+
+.qg-btn-run .qg-icon {
+    fill: currentColor;
+}
+
+.qg-btn-stop {
+    height: 38px;
+}
+
+.qg-btn-stop:not(:disabled) {
+    background: rgba(229, 72, 77, .12);
+    color: var(--danger);
+}
+
+.qg-script-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-basis: 100%;
+    min-width: 0;
+    padding: 0 2px;
+    color: var(--text-3);
+    font-size: 11.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.qg-script-status::before {
+    content: "";
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-3);
+}
+
+.qg-script-status[data-state="running"]::before {
+    background: var(--accent);
+    animation: qg-pulse 1s ease-in-out infinite;
+}
+
+.qg-script-status[data-state="ok"]::before {
+    background: var(--success);
+}
+
+.qg-script-status[data-state="error"]::before {
+    background: var(--danger);
+}
+
+@keyframes qg-pulse {
+    50% {
+        opacity: .3;
+        transform: scale(.7);
+    }
+}
+
+.qg-script-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 14px 6px 16px;
+}
+
+.qg-script-heading {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--text-2);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.qg-btn-ghost {
+    border-color: transparent;
+    background: transparent;
+    color: var(--accent);
+}
+
+.qg-btn-ghost:hover {
+    background: var(--accent-soft);
+}
+
+.qg-script-blocks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 2px 12px 10px;
+}
+
+.qg-script-block {
+    --block-color: var(--accent);
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-height: 58px;
+    padding: 9px 8px 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--text);
+    text-align: left;
+    cursor: grab;
+    overflow: hidden;
+    transition: border-color .15s, box-shadow .15s, transform .12s;
+}
+
+.qg-script-block::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--block-color);
+}
+
+.qg-script-block:hover {
+    border-color: var(--block-color);
+    box-shadow: 0 6px 18px -10px var(--block-color);
+    transform: translateY(-1px);
+}
+
+.qg-script-block:active {
+    cursor: grabbing;
+}
+
+.qg-script-block:focus-visible {
+    outline: none;
+    box-shadow: var(--focus);
+}
+
+.qg-script-block-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--block-color) 14%, transparent);
+    color: var(--block-color);
+}
+
+.qg-script-block-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.qg-script-block-name {
+    overflow: hidden;
+    font-size: 12.5px;
+    font-weight: 650;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.qg-script-block-desc {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--text-3);
+    font-size: 10.5px;
+    line-height: 1.3;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.qg-script-hint {
+    margin: 0 16px 12px;
+    color: var(--text-3);
+    font-size: 11.5px;
+    line-height: 1.5;
+}
+
+.qg-script-hint code,
+.qg-block-about code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--surface-3);
+    font: 11px var(--font-mono);
+}
+
+.qg-console-card {
+    margin: 0 12px 12px;
+    padding-bottom: 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    overflow: hidden;
+}
+
+.qg-console-card .qg-script-head {
+    padding: 6px 6px 4px 12px;
+}
+
+.qg-console {
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 0 4px;
+    font: 11.5px/1.45 var(--font-mono);
+    user-select: text;
+    -webkit-user-select: text;
+    scrollbar-width: thin;
+}
+
+.qg-console:empty {
+    display: none;
+}
+
+.qg-console-empty {
+    padding: 4px 12px 8px;
+    color: var(--text-3);
+    font-size: 11.5px;
+}
+
+.qg-log {
+    display: flex;
+    gap: 8px;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.qg-log-time {
+    flex: none;
+    color: var(--text-3);
+    font-size: 10.5px;
+}
+
+.qg-log-text {
+    min-width: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.qg-log-warn {
+    background: rgba(245, 166, 35, .12);
+    color: #b7791f;
+}
+
+.qg-log-error {
+    background: rgba(229, 72, 77, .1);
+    color: var(--danger);
+}
+
+.qg-log-system,
+.qg-log-info {
+    color: var(--text-3);
+    font-style: italic;
+}
+
+/* The inspector's Block page: stacked, full-width fields. */
+
+.qg-page[data-page="block"] .qg-field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 4px 0;
+}
+
+.qg-page[data-page="block"] .qg-field-label {
+    flex: none;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.qg-page[data-page="block"] .qg-field-control,
+.qg-page[data-page="block"] .qg-input,
+.qg-page[data-page="block"] .qg-select {
+    width: 100%;
+}
+
+.qg-page[data-page="block"] .qg-button-row {
+    padding: 8px 0 0;
+}
+
+.qg-mono,
+.qg-code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+.qg-code {
+    height: auto;
+    min-height: 180px;
+    padding: 10px;
+    line-height: 1.5;
+    tab-size: 4;
+    white-space: pre;
+    resize: vertical;
+}
+
+.qg-field-hint {
+    color: var(--text-3);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.qg-block-about {
+    margin: 0 0 6px;
+    color: var(--text-3);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.qg-block-output {
+    margin: 0;
+    max-height: 200px;
+    overflow: auto;
+    padding: 10px 12px;
+    border-radius: 9px;
+    background: var(--surface-2);
+    color: var(--text-3);
+    font: 12px/1.45 var(--font-mono);
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.qg-block-output[data-state="ok"] {
+    background: rgba(48, 164, 108, .1);
+    color: var(--success);
+}
+
+.qg-block-output[data-state="error"] {
+    background: rgba(229, 72, 77, .1);
+    color: var(--danger);
+}
+
+/* Top bar Run button. */
+
+.qg-topbar .qg-btn-run {
+    flex: none;
+    height: 34px;
+    font-size: 13px;
+    border-color: transparent;
+    background: rgba(48, 164, 108, .14);
+    color: var(--success);
+}
+
+.qg-topbar .qg-btn-run:hover {
+    background: rgba(48, 164, 108, .22);
+}
+
+.qg-app.is-script-running .qg-topbar .qg-btn-run .qg-icon {
+    animation: qg-pulse 1s ease-in-out infinite;
+}
+
+.qg-app[data-layout="phone"] .qg-script-blocks {
+    grid-template-columns: 1fr 1fr;
+}
+
+.qg-app[data-layout="phone"] .qg-script-block-desc {
+    display: none;
+}
+
+.qg-app[data-layout="phone"] .qg-script-block {
+    min-height: 52px;
+    align-items: center;
+}
+
+/* Four inspector tabs (Block, Style, Text, Arrange) drop their icons to fit. */
+
+.qg-inspector-tabs .qg-segment {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.qg-inspector-tabs:has(.qg-segment[data-tab="block"]:not([hidden])) .qg-segment .qg-icon-wrap {
+    display: none;
+}
+
+/* Phones: the console sits right under Run so output is in view. */
+
+.qg-app[data-layout="phone"] .qg-panel-script .qg-panel-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.qg-app[data-layout="phone"] .qg-panel-script .qg-console-card {
+    order: 1;
+    flex: none;
+}
+
+.qg-app[data-layout="phone"] .qg-panel-script .qg-script-head,
+.qg-app[data-layout="phone"] .qg-panel-script .qg-script-blocks,
+.qg-app[data-layout="phone"] .qg-panel-script .qg-script-hint {
+    order: 2;
+}
+
+.qg-app[data-layout="phone"] .qg-panel-script .qg-console-card .qg-script-head {
+    order: 0;
+}
+
+.qg-app[data-layout="phone"] .qg-console {
+    max-height: 28vh;
+}

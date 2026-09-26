@@ -33,12 +33,18 @@ proc modeName(m: LayoutMode): string =
   of lmPhone: "phone"
 
 proc syncDocks(ui: EditorUi) =
+  ## The left dock holds either the shape library or the Script tab.
   ui.leftDock.toggleClass("is-open", ui.libraryOpen)
   ui.rightDock.toggleClass("is-open", ui.inspectorOpen)
   ui.container.toggleClass("has-library", ui.libraryOpen)
   ui.container.toggleClass("has-inspector", ui.inspectorOpen)
+  if ui.layout != lmPhone:
+    ui.libraryPanel.hidden = ui.leftPane != "library"
+    if not ui.scriptPanel.isNil: ui.scriptPanel.hidden = ui.leftPane != "script"
   let shapes = ui.railButtons.getOrDefault("shapes", nilNode)
-  if not shapes.isNil: shapes.toggleClass("is-active", ui.libraryOpen)
+  if not shapes.isNil: shapes.toggleClass("is-active", ui.libraryOpen and ui.leftPane == "library")
+  let script = ui.railButtons.getOrDefault("script", nilNode)
+  if not script.isNil: script.toggleClass("is-active", ui.libraryOpen and ui.leftPane == "script")
   if not ui.inspectorToggle.isNil: ui.inspectorToggle.toggleClass("is-active", ui.inspectorOpen)
 
 proc setActiveTab(ui: EditorUi, name: string) =
@@ -55,6 +61,7 @@ proc closeSheet(ui: EditorUi) =
 proc showInSheet(ui: EditorUi, panelNode: Node, title, tabName: string) =
   if not ui.sheetPanel.isNil and not same(ui.sheetPanel, panelNode): ui.sheetPanel.remove()
   ui.sheetPanel = panelNode
+  panelNode.hidden = false
   ui.sheetTitle.text = title
   ui.sheetBody.appendChild(panelNode)
   ui.sheetOpen = true
@@ -83,11 +90,13 @@ proc applyLayout*(ui: EditorUi) =
       ui.inspectorOpen = false
     if mode == lmPhone:
       # Panels live in the sheet on phones; they are mounted on demand.
-      for p in [ui.libraryPanel, ui.inspectorPanel]: p.remove()
+      for p in [ui.libraryPanel, ui.inspectorPanel, ui.scriptPanel]:
+        if not p.isNil: p.remove()
       if not ui.layersCard.isNil: ui.layersCard.hidden = true
       if not ui.outlineCard.isNil: ui.outlineCard.hidden = true
     else:
       ui.leftDock.appendChild(ui.libraryPanel)
+      if not ui.scriptPanel.isNil: ui.leftDock.appendChild(ui.scriptPanel)
       ui.rightDock.appendChild(ui.inspectorPanel)
       if not ui.layersCard.isNil and not same(ui.layersPanel.getNode("parentNode"), ui.layersCard):
         ui.layersCard.appendChild(ui.layersPanel)
@@ -108,6 +117,9 @@ proc openPanel*(ui: EditorUi, name: string, tab = "") =
   if ui.layout == lmPhone:
     case name
     of "library": ui.showInSheet(ui.libraryPanel, "Shapes", "shapes")
+    of "script":
+      ui.ensureWorker()
+      ui.showInSheet(ui.scriptPanel, "Script", "script")
     of "inspector":
       let hasSelection = ui.graph.getSelection().len > 0
       ui.updateFormatTabs(hasSelection)
@@ -116,6 +128,7 @@ proc openPanel*(ui: EditorUi, name: string, tab = "") =
         of "text": "Text"
         of "arrange": "Arrange"
         of "diagram": "Diagram"
+        of "block": "Block"
         else: "Style"
       ui.showInSheet(ui.inspectorPanel, title, if tab.len > 0: tab else: "style")
     of "layers": ui.showInSheet(ui.layersPanel, "Layers", "more")
@@ -130,6 +143,11 @@ proc openPanel*(ui: EditorUi, name: string, tab = "") =
   case name
   of "library":
     ui.libraryOpen = true
+    ui.leftPane = "library"
+  of "script":
+    ui.libraryOpen = true
+    ui.leftPane = "script"
+    ui.ensureWorker()
   of "inspector":
     ui.inspectorOpen = true
     if tab.len > 0: ui.selectFormatTab(tab)
@@ -144,9 +162,16 @@ proc openPanel*(ui: EditorUi, name: string, tab = "") =
 proc togglePane*(ui: EditorUi, name: string) =
   if ui.layout == lmPhone:
     if ui.sheetOpen: ui.closeSheet()
-    else: ui.openPanel(if name == "sidebar": "library" else: "inspector")
+    else: ui.openPanel(if name == "sidebar": "library" elif name == "script": "script" else: "inspector")
     return
-  if name == "sidebar": ui.libraryOpen = not ui.libraryOpen
+  case name
+  of "sidebar", "script":
+    let pane = if name == "script": "script" else: "library"
+    if ui.libraryOpen and ui.leftPane == pane: ui.libraryOpen = false
+    else:
+      ui.libraryOpen = true
+      ui.leftPane = pane
+      if pane == "script": ui.ensureWorker()
   else: ui.inspectorOpen = not ui.inspectorOpen
   ui.syncDocks()
   ui.graph.render()

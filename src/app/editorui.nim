@@ -7,7 +7,7 @@
 ## docked, drawer, floating card or bottom sheet. All of it is DOM built
 ## through qweb's command buffer.
 
-import std/[tables, sets, strutils, math]
+import std/[tables, sets, strutils, math, algorithm]
 import ../jsval, ../host, ../geometry, ../graph, ../canvas, ../painter, ../richtext
 import ../web/qweb
 import jsutil, media, view, overlay, data, legacy, mxformat, svgconvert, stencilxml, shapesvg,
@@ -62,6 +62,23 @@ type
 
   LayoutMode = enum lmDesktop, lmTablet, lmPhone
 
+  ScriptProgram = object
+    source, error, errorId: string
+    spans: seq[(int, int, string)]  ## first line, last line, block id
+
+  ScriptRuntime = ref object
+    ## The Luau worker and the run in flight (script.nim).
+    worker: Node
+    workerReady, running, pendingRun, stopped: bool
+    runId, addCount, lineCount: int
+    program: ScriptProgram
+    before, failedBlock, engine, inspectedId: string
+    startedAt: float64
+    consoleBody, consoleEmpty, status, topStatus: Node
+    runButton, stopButton, topRun, inspectorRun: Node
+    inspectorBody: Node
+    codeTimer: int32
+
   EditorUi* = ref object
     container*: Node
     topbar, menubar, rail, workspace, leftDock, rightDock, stage, diagram: Node
@@ -69,7 +86,9 @@ type
     tabbar, sheetBackdrop, sheet, sheetTitle, sheetBody, floatLayer: Node
     docName, themeButton, inspectorToggle: Node
     fileInput, toastElement, imageInput: Node
-    libraryPanel, inspectorPanel, layersPanel, outlinePanel, menuPanel: Node
+    libraryPanel, inspectorPanel, layersPanel, outlinePanel, menuPanel, scriptPanel: Node
+    leftPane: string
+    script: ScriptRuntime
     layersCard, outlineCard: Node
     contextMenu: Node
     contextMenuBaseEntries: seq[string]
@@ -186,6 +205,15 @@ proc togglePane*(ui: EditorUi, name: string)
 proc addToScratchpad(ui: EditorUi, node: Val = nil)
 proc insertBlockJson(ui: EditorUi, json: string, point: Val = nil)
 proc addStencilPalettes(ui: EditorUi)
+proc selectedScriptBlock(ui: EditorUi): Val
+proc refreshScriptInspector(ui: EditorUi)
+proc runScript*(ui: EditorUi, entryIds: seq[string] = @[])
+proc stopScript*(ui: EditorUi)
+proc insertScriptExample(ui: EditorUi)
+proc clearConsole(ui: EditorUi)
+proc buildScriptPanel(ui: EditorUi)
+proc installScript(ui: EditorUi)
+proc ensureWorker(ui: EditorUi)
 
 include editor_doc
 include ui_components
@@ -197,11 +225,14 @@ include ui_dialogs
 include actions
 include toolbar
 include sidebar
+include script
+include script_ui
 
 # ------------------------------------------------------------------ startup --
 
 proc newEditorUi*(host: Node = body): EditorUi =
-  let ui = EditorUi(container: host, libraryOpen: true, inspectorOpen: true)
+  let ui = EditorUi(container: host, libraryOpen: true, inspectorOpen: true, leftPane: "library",
+                    script: ScriptRuntime())
   ui.container.className = "qg-app"
   ui.container.html = ""
   ui.theme = ui.initialTheme()

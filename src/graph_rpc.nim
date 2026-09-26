@@ -52,6 +52,45 @@ proc updateItem*(g: Graph, id: string, changes: Val, label: string, record: bool
   g.render()
   item
 
+proc removeItems*(g: Graph, ids: openArray[string]): seq[string] =
+  ## Removes items, their contained children and every edge attached to
+  ## them without recording an undo step (callers group their own). Returns
+  ## the ids that went.
+  var remove = initHashSet[string]()
+  for id in ids:
+    if g.byId.hasKey(id) and not remove.containsOrIncl(id): result.add id
+  var grew = true
+  while grew:
+    grew = false
+    for child in g.items:
+      if child.tr("containerId") and remove.contains(str(child["containerId"])) and
+          not remove.containsOrIncl(idOf(child)):
+        result.add idOf(child)
+        grew = true
+  for item in g.items:
+    if item.eqs("type", "edge") and
+        ((truthy(item["sourceId"]) and remove.contains(str(item["sourceId"]))) or
+         (truthy(item["targetId"]) and remove.contains(str(item["targetId"])))):
+      if not remove.containsOrIncl(idOf(item)): result.add idOf(item)
+  if result.len == 0: return
+  var kept: seq[Val]
+  for it in g.items:
+    if not remove.contains(idOf(it)): kept.add it
+  g.items = kept
+  for id in result:
+    g.byId.del(id)
+    g.index.remove(id)
+  var selection: seq[string]
+  for id in g.selection:
+    if not remove.contains(id): selection.add id
+  let selectionChanged = selection.len != g.selection.len
+  g.selection = selection
+  g.rebuildIndex()
+  g.rendererRemove(result)
+  g.updateWorldSize()
+  g.render()
+  if selectionChanged: g.emitSelection()
+
 proc replaceItem*(g: Graph, id: string, data: Val, label: string): Val =
   ## Edit Data: swaps every property of one item for `data` (id and type
   ## stay), as one undo step.

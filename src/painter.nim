@@ -1280,6 +1280,144 @@ proc drawTaskList(p: ScenePainter, ctx: Ctx, node: Val) =
     let taskText = if task.isStr: task elif truthy(task): task["text"] else: nil
     ctx.fillText(if nullish(taskText): "" else: str(taskText), x + 22, cy)
 
+# ------------------------------------------------------- script blocks --
+
+const scriptMono = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+
+proc scriptField(node: Val, key: string): string =
+  let vs = node["visualScript"]
+  if vs != nil and vs.isObj and not nullish(vs.get(key)): str(vs.get(key)) else: ""
+
+proc ellipsize(ctx: Ctx, text: string, maxWidth: float64): string =
+  if maxWidth <= 0: return ""
+  if ctx.measureText(text) <= maxWidth: return text
+  result = text
+  while result.len > 0 and ctx.measureText(result & "…") > maxWidth:
+    result.setLen(result.len - 1)
+    while result.len > 0 and (ord(result[^1]) and 0xC0) == 0x80: result.setLen(result.len - 1)
+    if result.len > 0 and ord(result[^1]) >= 0xC0: result.setLen(result.len - 1)
+  result &= "…"
+
+proc orDash(s: string): string = (if s.strip.len == 0: "…" else: s.strip)
+
+proc scriptRows*(node: Val): seq[(string, string)] =
+  ## What a script block shows under its title: (caption, value) rows; an
+  ## empty caption marks a code line.
+  let f = proc(k: string): string = scriptField(node, k)
+  case node.so("vsType", "")
+  of "start": result.add ("", "▶ when Run is pressed")
+  of "luau", "function", "process":
+    let code = f("code")
+    if code.strip.len == 0: result.add ("", "-- Luau code")
+    for line in code.split('\n'): result.add ("", line)
+  of "set": result.add ("", orDash(f("name")) & " = " & orDash(f("value")))
+  of "condition":
+    result.add ("", "if " & orDash(f("test")))
+    result.add ("then", "true ▸   else ▸ false")
+  of "for":
+    let step = f("step").strip
+    result.add ("", "for " & orDash(f("iterator")) & " = " & orDash(f("from")) & ", " &
+      orDash(f("to")) & (if step.len > 0 and step != "1": ", " & step else: ""))
+    result.add ("edges", "loop ▸   done ▸")
+  of "while":
+    result.add ("", "while " & orDash(f("condition")))
+    let limit = f("max").strip
+    result.add ("max", if limit.len == 0 or limit == "0": "no limit" else: limit & " times")
+  of "output":
+    result.add ("", orDash(f("value")))
+    let mode = f("mode")
+    result.add ("show", if mode == "console": "in the console"
+                        elif mode == "alert": "as a browser alert"
+                        else: "on this block")
+  of "ask":
+    result.add ("", orDash(f("name")) & " = prompt(" & orDash(f("message")) & ")")
+  of "delay": result.add ("", "wait(" & orDash(f("seconds")) & ")")
+  of "shape":
+    result.add ("shape", orDash(f("target")))
+    result.add ("", orDash(f("property")) & " = " & orDash(f("value")))
+  else:
+    let rows = node["visualRows"]
+    if rows != nil and rows.isArr:
+      for row in rows:
+        if row.isArr and row.len >= 2: result.add (textOf(row[0]), textOf(row[1]))
+    let summary = node["visualSummary"]
+    if summary != nil and summary.isArr and summary.len >= 2:
+      result.add ("", textOf(summary[1]))
+
+proc drawVisualScript(p: ScenePainter, ctx: Ctx, node: Val) =
+  ## A script block: a coloured title bar, what the block does, and the
+  ## output or error of the last run.
+  let x = nodeX(node)
+  let y = nodeY(node)
+  let w = nodeW(node)
+  let h = nodeH(node)
+  let accent = node.so("stroke", "#6366f1")
+  let header = jsMin(26, h)
+  ctx.save()
+  p.traceNode(ctx, node)
+  ctx.clip()
+  ctx.fillStyle = accent
+  ctx.fillRect(x, y, w, header)
+  ctx.restore()
+
+  ctx.save()
+  ctx.textBaseline = "middle"
+  ctx.textAlign = "left"
+  ctx.fillStyle = "#ffffff"
+  ctx.font = "700 12px Inter, Arial, sans-serif"
+  let tag = node.so("vsType", "script").toUpperAscii
+  ctx.font = "700 9px Inter, Arial, sans-serif"
+  let tagWidth = ctx.measureText(tag)
+  let showTag = tagWidth + 44 < w
+  if showTag:
+    ctx.globalAlpha = 0.75
+    ctx.fillText(tag, x + w - 8 - tagWidth, y + header / 2 + 0.5)
+    ctx.globalAlpha = 1
+  ctx.font = "700 12px Inter, Arial, sans-serif"
+  let titleRoom = w - 18 - (if showTag: tagWidth + 10 else: 0.0)
+  ctx.fillText(ellipsize(ctx, node.so("text", "Script"), titleRoom), x + 9, y + header / 2 + 0.5)
+
+  # Output of the last run, pinned to the bottom.
+  let error = scriptField(node, "lastError")
+  let output = scriptField(node, "lastResult")
+  var bodyBottom = y + h - 6
+  if error.len > 0 or output.len > 0:
+    let isError = error.len > 0
+    ctx.font = "11px " & scriptMono
+    let lines = wrapText(ctx, (if isError: "⚠ " & error else: output), w - 24)
+    let available = int((h - header - 30) / 14)
+    let shown = max(1, min(lines.len, max(1, available)))
+    let boxH = float64(shown) * 14 + 8
+    let boxY = y + h - boxH - 6
+    roundedRect(ctx, x + 6, boxY, w - 12, boxH, 5)
+    ctx.fillStyle = if isError: "#fef2f2" else: "#f0fdf4"
+    ctx.fill()
+    ctx.fillStyle = if isError: "#b91c1c" else: "#166534"
+    for i in 0 ..< shown:
+      var line = lines[i]
+      if i == shown - 1 and shown < lines.len: line &= " …"
+      ctx.fillText(ellipsize(ctx, line, w - 24), x + 12, boxY + 11 + float64(i) * 14)
+    bodyBottom = boxY - 2
+
+  var rowY = y + header + 13
+  for (caption, value) in scriptRows(node):
+    if rowY + 5 > bodyBottom: break
+    if caption.len > 0:
+      ctx.font = "600 9px Inter, Arial, sans-serif"
+      ctx.fillStyle = "#94a3b8"
+      let cap = caption.toUpperAscii
+      ctx.fillText(cap, x + 9, rowY)
+      let capWidth = ctx.measureText(cap) + 6
+      ctx.font = "11px " & scriptMono
+      ctx.fillStyle = "#334155"
+      ctx.fillText(ellipsize(ctx, value, w - 18 - capWidth), x + 9 + capWidth, rowY)
+    else:
+      ctx.font = "11px " & scriptMono
+      ctx.fillStyle = "#1e293b"
+      ctx.fillText(ellipsize(ctx, value, w - 18), x + 9, rowY)
+    rowY += 15
+  ctx.restore()
+
 proc drawNode*(p: ScenePainter, ctx: Ctx, node: Val) =
   let center = nodeCenter(node)
   ctx.save()
@@ -1339,6 +1477,7 @@ proc drawNode*(p: ScenePainter, ctx: Ctx, node: Val) =
   if node.tr("cscript"): drawScriptBadge(ctx, node)
 
   if node.eqs("kind", "taskList"): p.drawTaskList(ctx, node)
+  elif node.eqs("kind", "visualScript"): p.drawVisualScript(ctx, node)
   elif node.eqs("shape", "table"): p.drawTableCells(ctx, node)
   else: p.drawNodeText(ctx, node)
   ctx.restore()

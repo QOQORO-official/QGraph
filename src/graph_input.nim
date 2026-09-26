@@ -1754,6 +1754,11 @@ proc doubleClick*(g: Graph, ev: PointerEv): int =
     return FlagPrevent
   let hit = g.hitTest(world)
   if hit == nil: return 0
+  if hit.eqs("kind", "visualScript"):
+    # Script blocks are edited in the inspector, not inline.
+    g.setSelection(@[idOf(hit)])
+    g.emit("scriptblockopen", obj(("id", jstr(idOf(hit)))))
+    return FlagPrevent
   if hit.eqs("kind", "taskList"):
     let (ok, index, box) = g.taskRowAt(hit, world)
     if ok:

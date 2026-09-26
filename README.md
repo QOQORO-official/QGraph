@@ -7,9 +7,19 @@ engine, the painter, the file formats and the media pipeline. The page ships
 one small, generic JavaScript host (`web/js/qweb.js`) and one module
 (`web/js/qgraph.wasm`).
 
-Layout, behaviour and pixels match the JavaScript mxGraph-style editor it
-replaces. The programming nodes (Visual Script, CScript), PowerPoint paste,
-the server bridge and Mobile Lite are not part of this build.
+**Visual scripting with Luau.** The Script tab holds script blocks (Start,
+Output, Luau code, Set variable, If, Repeat, While, Ask, Wait, Set shape) that
+you connect into a flow and Run. Nim compiles the flow into one Luau program,
+which runs on the Luau VM from [luau-web](https://github.com/xNasuni/luau-web)
+1.4.0 (Luau compiled to WebAssembly, vendored in `web/js/luau-web-1.4.0`) in a
+Web Worker (`web/js/luau-worker.js`). The VM is not Nim: every document
+operation a program requests (`doc.find`, `doc.set`, `doc.add`,
+`doc.connect`, `doc.remove`, output on a block, alerts and prompts) is sent to
+the page and carried out by Nim, and a whole run is one undo step. Output
+blocks print on the block itself, in the console, or as a browser alert.
+
+PowerPoint paste, CScript, the server bridge and Mobile Lite are not part of
+this build.
 
 Live: https://qoqoro-official.github.io/QGraph/
 

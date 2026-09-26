@@ -177,6 +177,7 @@ proc fillContextMenu(ui: EditorUi) =
       "tableInsertColumnLeft", "tableInsertColumnRight", "tableDeleteColumn", "-",
       "tableMergeCells", "tableSplitCell", "-",
       "delete", "cut", "copy", "-", "editStyle", "editLink"]
+    elif ui.selectedScriptBlock() != nil: @["runScriptFrom", "-"] & ui.contextMenuBaseEntries
     else: ui.contextMenuBaseEntries
   ui.addMenuItems(ui.contextMenu, entries(list))
 
@@ -315,6 +316,10 @@ proc buildTopbar(ui: EditorUi) =
   ui.inspectorToggle = iconButton("panelRight", "Inspector", "qg-hide-phone")
   ui.inspectorToggle.on("click", proc(e: Event) = ui.togglePane("inspector"))
   right.appendChild(ui.inspectorToggle)
+  ui.script.topRun = textButton("Run", "qg-btn qg-btn-run qg-hide-phone", "play")
+  ui.script.topRun.setAttribute("title", "Run the script blocks (Ctrl+Enter)")
+  ui.script.topRun.on("click", proc(e: Event) = ui.runScript())
+  right.appendChild(ui.script.topRun)
   let exportButton = textButton("Export", "qg-btn qg-btn-primary qg-hide-phone", "export")
   discard ui.attachDropdown(exportButton, entries(["exportPng", "download", "-", "save", "saveAs", "-", "print"]))
   right.appendChild(exportButton)
@@ -336,6 +341,7 @@ proc buildRail(ui: EditorUi) =
   ui.railButton("blocks", "star", "My Blocks", proc() =
     ui.openPanel("library")
     if ui.sidebar.setCategory != nil: ui.sidebar.setCategory("saved"))
+  ui.railButton("script", "script", "Script: Luau blocks", proc() = ui.togglePane("script"))
   ui.rail.appendChild(div0("qg-rail-sep"))
   ui.railButton("text", "text", "Text", proc() = discard ui.editor.addAtCenter("text"))
   ui.railButton("note", "note", "Sticky note", proc() = discard ui.editor.addAtCenter("note"))
@@ -366,6 +372,7 @@ proc buildTabbar(ui: EditorUi) =
       let active = ui.tabButtons[key].matches(".is-active")
       if ui.sheetOpen and active: ui.closeSheet() else: open()
   ui.tabButton("shapes", "shapes", "Shapes", toggle("shapes", proc() = ui.openPanel("library")))
+  ui.tabButton("script", "script", "Script", toggle("script", proc() = ui.openPanel("script")))
   ui.tabButton("style", "palette", "Style", toggle("style", proc() = ui.openPanel("inspector", "style")))
   ui.tabButton("text", "text", "Text", toggle("text", proc() = ui.openPanel("inspector", "text")))
   ui.tabButton("arrange", "arrange", "Arrange", toggle("arrange", proc() = ui.openPanel("inspector", "arrange")))
@@ -390,8 +397,9 @@ proc buildSelectionPill(ui: EditorUi) =
   add("edit", "Edit text", proc() = ui.run("edit"))
   add("palette", "Style", proc() = ui.openPanel("inspector", "style"))
   add("duplicate", "Duplicate", proc() = ui.run("duplicate"))
+  add("play", "Run script (from this block when it is one)", proc() =
+    ui.run(if ui.selectedScriptBlock() != nil: "runScriptFrom" else: "runScript"))
   add("star", "Save as block", proc() = ui.run("addToScratchpad"))
-  add("toFront", "To front", proc() = ui.run("toFront"))
   add("trash", "Delete", proc() = ui.run("delete"))
   add("more", "More actions", proc() =
     ui.fillContextMenu()
@@ -405,6 +413,7 @@ proc createUi(ui: EditorUi) =
   ui.buildMenuPanel()
   ui.buildToolbar()
   ui.buildSidebar()
+  ui.buildScriptPanel()
   ui.buildFormat()
   ui.buildWindows()
   ui.buildStatus()
@@ -424,6 +433,7 @@ proc bindEvents(ui: EditorUi) =
   g.on("diagramchange", proc(d: Val) = ui.updateFormat())
   g.on("toast", proc(d: Val) = ui.toast(valStr(d)))
   g.on("contextmenu", proc(d: Val) = ui.showContextMenu(d))
+  ui.installScript()
   g.on("dropblock", proc(d: Val) =
     let point = newObj()
     point["x"] = d["x"]
@@ -451,6 +461,14 @@ proc bindEvents(ui: EditorUi) =
       ui.closeSheet()
       return
     let modifier = e.ctrlKey or e.metaKey
+    if modifier and e.key == "Enter" and not e.target.matches("[contenteditable]"):
+      e.preventDefault()
+      ui.run("runScript")
+      return
+    if modifier and e.key == "." and ui.script.running:
+      e.preventDefault()
+      ui.run("stopScript")
+      return
     if not modifier or e.target.matches("input,textarea,select,[contenteditable]"): return
     let key = e.key.toLowerAscii()
     if key == "s":

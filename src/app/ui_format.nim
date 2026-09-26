@@ -193,11 +193,13 @@ proc buildFormat(ui: EditorUi) =
     ui.formatTabButtons[name] = tab
 
   makeTab("diagram", "Diagram", "page")
+  makeTab("block", "Block", "script")
   makeTab("style", "Style", "palette")
   makeTab("text", "Text", "text")
   makeTab("arrange", "Arrange", "arrange")
 
   let diagramPanel = makePanel("diagram")
+  ui.script.inspectorBody = makePanel("block")
   let stylePanel = makePanel("style")
   let textPanel = makePanel("text")
   let arrangePanel = makePanel("arrange")
@@ -457,8 +459,13 @@ proc selectFormatTab*(ui: EditorUi, name: string) =
     ui.formatTabButtons[key].setAttribute("aria-selected", if key == name: "true" else: "false")
 
 proc updateFormatTabs*(ui: EditorUi, hasSelection: bool) =
-  ## Diagram when nothing is selected, Style/Text/Arrange otherwise.
-  let visible = if hasSelection: @["style", "text", "arrange"] else: @["diagram"]
+  ## Diagram when nothing is selected, Style/Text/Arrange otherwise, and
+  ## Block first for a single script block.
+  let scriptBlock = ui.selectedScriptBlock()
+  let visible = if scriptBlock != nil: @["block", "style", "text", "arrange"]
+                elif hasSelection: @["style", "text", "arrange"] else: @["diagram"]
+  if scriptBlock != nil and idOf(scriptBlock) != ui.script.inspectedId:
+    ui.activeFormatTab = "block"
   for key, tab in ui.formatTabButtons:
     let shown = key in visible
     tab.hidden = not shown
@@ -497,6 +504,7 @@ proc updateFormat*(ui: EditorUi) =
 
   let selection = gv.getSelection()
   ui.updateFormatTabs(selection.len > 0)
+  ui.refreshScriptInspector()
   for control in ui.styleControls: control.disabled = selection.len == 0
 
   # Edit Media appears only for media, and the pair then splits the row.

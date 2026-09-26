@@ -126,6 +126,15 @@ proc installActions(ui: EditorUi) =
     let scale = clamp(numVal(value, 100), 10, 400) / 100
     gv.setDiagramOptions(o1("pageScale", jnum(scale))))
   ui.add("addToScratchpad", "Save as Block…", proc() = ui.addToScratchpad(), "Ctrl+Shift+B")
+  ui.add("runScript", "Run Script", proc() = ui.runScript(), "Ctrl+Enter")
+  ui.add("stopScript", "Stop Script", proc() = ui.stopScript(), "Ctrl+.")
+  ui.add("runScriptFrom", "Run from Here", proc() =
+    let item = ui.selectedScriptBlock()
+    if item != nil: ui.runScript(@[idOf(item)])
+    else: ui.toast("Select a script block to run from"))
+  ui.add("scriptPanel", "Script Blocks", proc() = ui.openPanel("script"))
+  ui.add("scriptExample", "Insert Script Example", proc() = ui.insertScriptExample())
+  ui.add("clearConsole", "Clear Console", proc() = ui.clearConsole())
 
   ui.add("insertTable", "Insert Table", proc() = discard editor.addAtCenter("table"))
   ui.add("insertHtml", "Insert HTML Block…", proc() = ui.editHtml())
@@ -358,6 +367,8 @@ proc installMenus(ui: EditorUi) =
       "portMode", "addWaypoint", "resetWaypoints", "reverseConnector", "-",
       "solid", "dashed", "dotted", "rounded", "shadow", "-",
       "setDefaultStyle", "clearDefaultStyle"]),
+    ("Script", @["runScript", "stopScript", "runScriptFrom", "-", "scriptPanel", "scriptExample",
+      "clearConsole"]),
     ("Help", @["about"])]
 
 proc buildMenus(ui: EditorUi, container: Node) =
