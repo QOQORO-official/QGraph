@@ -1249,7 +1249,10 @@ proc pointerMove*(g: Graph, ev: PointerEv): int =
         if pts.len > 1:
           referencePoint = if action.terminal == "source": pts[^1] else: pts[0]
           hasReference = true
-    let targetInfo = g.findConnectionTarget(world, ignoreId, referencePoint, referenceSide, hasReference)
+    let portDirection = if action.kind == "reconnect" and action.terminal == "source":
+      "output" else: "input"
+    let targetInfo = g.findConnectionTarget(world, ignoreId, referencePoint,
+                                             referenceSide, hasReference, portDirection)
     let namedSource = action.kind == "connect" and action.sourceAnchor != nil and
       action.sourceAnchor.eqs("portKind", "output")
     let namedTarget = targetInfo.anchor != nil and targetInfo.anchor.eqs("portKind", "input")

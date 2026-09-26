@@ -66,7 +66,14 @@ const {chromium} = require('./pw');
     window.graph.setSelection(['socket-source']);
   });
   await page.locator('.qg-inspector-tabs [data-tab=style]').click();
-  assert.equal(await page.locator('.qg-panel-inspector [data-page=style] input[type=checkbox]').count() > 0, true);
+  const socketsCard = page.locator('.qg-panel-inspector [data-page=style] .qg-card',
+    {hasText: 'Variable sockets'});
+  const socketsToggle = socketsCard.locator('input[type=checkbox]');
+  assert.equal(await socketsToggle.isChecked(), true);
+  await socketsToggle.uncheck();
+  assert.equal(await page.evaluate(() => JSON.parse(window.graph.toJSON()).items.find(item =>
+    item.id === 'socket-source').portsEnabled), false, 'socket visibility changes only on this node');
+  await socketsToggle.check();
   const ports = await page.evaluate(() => {
     const g = window.graph, r = g.container.getBoundingClientRect();
     const xy = (x, y) => ({x: r.left + (x + (g.worldOriginX || 0)) * g.zoom - g.container.scrollLeft,

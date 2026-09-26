@@ -47,6 +47,12 @@ const dir = path.join(__dirname, 'golden');
       if (!ok) {
         failures++;
         fs.writeFileSync(path.join(dir, sc.name + '.actual.json'), text);
+        const expected = fs.readFileSync(file, 'utf8');
+        let at = 0;
+        while (at < Math.min(expected.length, text.length) && expected[at] === text[at]) at++;
+        console.log('  first difference at ' + at + ': expected ' +
+          JSON.stringify(expected.slice(Math.max(0, at - 45), at + 100)) +
+          ', actual ' + JSON.stringify(text.slice(Math.max(0, at - 45), at + 100)));
       }
       console.log((ok ? 'PASS ' : 'FAIL ') + sc.name + (errors.length ? '\n  ' + errors.join('\n  ') : ''));
     }

@@ -53,7 +53,8 @@ proc markTag(tag: string): string =
 proc styleMarks(element: HNode, marks: Val): Val =
   let weight = element.styleProp("fontWeight")
   if weight == "bold" or jsNumber(weight) >= 600: marks["bold"] = jtrue
-  elif weight == "normal" or (jsNumber(weight) == jsNumber(weight) and jsNumber(weight) < 600):
+  elif weight == "normal" or (weight.len > 0 and jsNumber(weight) == jsNumber(weight) and
+                              jsNumber(weight) < 600):
     marks["bold"] = jfalse
   let fontStyle = element.styleProp("fontStyle")
   if fontStyle == "italic": marks["italic"] = jtrue

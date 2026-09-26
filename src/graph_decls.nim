@@ -168,11 +168,13 @@ proc closestCardinalAnchor(g: Graph, node: Val, p: Pt): AnchorInfo
 proc classicCardinalAnchor(g: Graph, node: Val, referencePoint: Pt, referenceSide: string,
                            hasReference: bool): AnchorInfo
 proc snappedNodeAnchor(g: Graph, node: Val, world: Pt, referencePoint: Pt,
-                       referenceSide: string, hasReference: bool): AnchorInfo
+                       referenceSide: string, hasReference: bool,
+                       portDirection = "input"): AnchorInfo
 proc connectableNode*(g: Graph, node: Val): Val
 proc compareConnectionCandidates(a, b: Val): int
 proc findConnectionTarget(g: Graph, world: Pt, ignoreId: string, referencePoint: Pt,
-                          referenceSide: string, hasReference: bool): AnchorInfo
+                          referenceSide: string, hasReference: bool,
+                          portDirection = "input"): AnchorInfo
 proc findDirectionalConnectionTarget(g: Graph, source: Val, side: string): DirectionalTarget
 proc connectVertex*(g: Graph, source0: Val, side0: string, hasDrop: bool, dropPoint: Pt,
                     before0: string): Val

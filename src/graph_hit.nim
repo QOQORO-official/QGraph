@@ -209,10 +209,11 @@ proc classicCardinalAnchor(g: Graph, node: Val, referencePoint: Pt, referenceSid
              snapped: true, automaticMidpoint: true)
 
 proc snappedNodeAnchor(g: Graph, node: Val, world: Pt, referencePoint: Pt,
-                       referenceSide: string, hasReference: bool): AnchorInfo =
+                       referenceSide: string, hasReference: bool,
+                       portDirection = "input"): AnchorInfo =
   if node.tr("portsEnabled"):
     for port in variablePorts(node):
-      if port.direction != "input": continue
+      if port.direction != portDirection: continue
       let distance = hypot(world.x - port.point.x, world.y - port.point.y)
       if distance <= 14 / g.zoom and (not result.found or distance < result.distance):
         result = AnchorInfo(found: true, node: node, anchor: clone(port.anchor),
@@ -268,7 +269,8 @@ proc compareConnectionCandidates(a, b: Val): int =
   jsCompareStr(idOf(b), idOf(a))
 
 proc findConnectionTarget(g: Graph, world: Pt, ignoreId: string, referencePoint: Pt,
-                          referenceSide: string, hasReference: bool): AnchorInfo =
+                          referenceSide: string, hasReference: bool,
+                          portDirection = "input"): AnchorInfo =
   let tolerance = 14 / g.zoom
   let ids = g.index.query(rect(world.x - tolerance, world.y - tolerance, tolerance * 2, tolerance * 2))
   var candidates: seq[Val]
@@ -285,7 +287,8 @@ proc findConnectionTarget(g: Graph, world: Pt, ignoreId: string, referencePoint:
     candidates.add node
   candidates.sort(compareConnectionCandidates)
   for c in candidates:
-    let info = g.snappedNodeAnchor(c, world, referencePoint, referenceSide, hasReference)
+    let info = g.snappedNodeAnchor(c, world, referencePoint, referenceSide,
+                                   hasReference, portDirection)
     if not info.found: continue
     let distance = if info.hasOutlineDistance: info.outlineDistance else: info.distance
     if g.pointInNode(world, c) or distance <= tolerance: return info
