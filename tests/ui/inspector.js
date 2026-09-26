@@ -34,10 +34,13 @@ const {chromium} = require('./pw');
   });
   await page.locator('.qg-inspector-tabs [data-tab=text]').click();
   await page.locator('.qg-panel-inspector [data-page=text] input[type=color]').fill('#e5484d');
+  const colorHtml = await page.locator('.pixel-text-input').evaluate(field => field.innerHTML);
   await page.locator('.qg-panel-inspector [data-page=text] button[title=Bold]').click();
   assert.equal(await page.locator('.pixel-text-input').count(), 1, 'label stays open while formatting');
+  const boldHtml = await page.locator('.pixel-text-input').evaluate(field => field.innerHTML);
   await page.evaluate(() => window.graph.finishTextEdit(true));
   const node = await page.evaluate(() => JSON.parse(window.graph.toJSON()).items.find(item => item.id === 'range-test'));
+  assert.ok(node.richText, `selected formatting survived: color ${colorHtml}, bold ${boldHtml}`);
   assert.equal(node.textColor, '#172033', 'base color stays unchanged');
   const runs = node.richText.blocks.flatMap(block => block.runs);
   assert.equal(runs.map(run => run.text).join(''), 'Alpha Beta Gamma');
@@ -98,6 +101,11 @@ const {chromium} = require('./pw');
   });
   await page.mouse.click(sourceCenter.x, sourceCenter.y);
   assert.equal(await page.evaluate(() => window.graph.getSelection().length), 0, 'canvas lock prevents selection');
+  await page.setViewportSize({width: 820, height: 700});
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('.qg-topbar-start [title="Menu"]').isVisible(), true,
+    'compact desktop and tablet widths keep the full menu accessible');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
   await page.setViewportSize({width: 320, height: 640});
   await page.waitForTimeout(200);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true,

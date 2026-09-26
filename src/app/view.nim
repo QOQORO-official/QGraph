@@ -303,6 +303,7 @@ proc retainTextEditorForInspector*(v: View) =
 
 proc execSelectedTextStyle*(v: View, command: string, value = "", hasValue = false): bool =
   ## Apply an inspector control to the selected words in the open label.
+  v.captureTextSelection()
   if not v.hasSelectedTextRange(): return false
   let saved = v.textEditor.range
   v.textEditor.field.focus(preventScroll = true)
@@ -330,9 +331,7 @@ proc execSelectedTextStyle*(v: View, command: string, value = "", hasValue = fal
     if fragment.isNil: return false
     wrapper.appendChild(fragment)
     saved.call("insertNode", wrapper)
-    saved.call("selectNodeContents", wrapper)
-    selection.call("removeAllRanges")
-    selection.call("addRange", saved)
+    selectContents(wrapper)
     result = true
   else:
     result = execCommand(command, value, hasValue)
@@ -429,6 +428,7 @@ proc isEditingText*(v: View): bool = v.textEditor.open
 proc execTextCommand*(v: View, command: string, value = "", hasValue = false): bool =
   ## Runs a browser editing command inside the open label.
   if not v.textEditor.open: return false
+  v.captureTextSelection()
   if v.hasSelectedTextRange(): return v.execSelectedTextStyle(command, value, hasValue)
   v.textEditor.field.focus(preventScroll = true)
   execCommand(command, value, hasValue)

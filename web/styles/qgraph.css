@@ -2171,6 +2171,18 @@ button {
     }
 }
 
+@media (max-width: 1250px) {
+    .qg-app .qg-topbar-start > .qg-only-phone {
+        display: inline-grid !important;
+    }
+    .qg-app .qg-menubar {
+        display: none;
+    }
+    .qg-app .qg-topbar-start {
+        flex: 1 1 auto;
+    }
+}
+
 /* ------------------------------------------------------------- tablet -- */
 
 .qg-app[data-layout="tablet"] .qg-dock {
