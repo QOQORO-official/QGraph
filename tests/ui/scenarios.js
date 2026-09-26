@@ -151,7 +151,7 @@ module.exports = [
   } },
   { name: 'group', run: async (page) => {
     await demo(page);
-    const a = await toScreen(page, 350, 100);
+    const a = await toScreen(page, 560, 60);
     const b = await toScreen(page, 900, 200);
     await drag(page, a, b);
     await page.keyboard.press('Control+g');
@@ -194,7 +194,7 @@ module.exports = [
   } },
   { name: 'align-left', run: async (page) => {
     await demo(page);
-    const a = await toScreen(page, 350, 100);
+    const a = await toScreen(page, 560, 60);
     const b = await toScreen(page, 900, 200);
     await drag(page, a, b);
     await page.evaluate(() => window.editorUi.actions.run('alignLeft'));

@@ -32,8 +32,8 @@
     "type": "node",
     "kind": "shape",
     "shape": "rect",
-    "x": 617.5,
-    "y": 153,
+    "x": 72,
+    "y": 52,
     "width": 340,
     "height": 52,
     "rotation": 0,
@@ -235,6 +235,6 @@
   ]
  },
  "selection": [
-  "title"
+  "admission"
  ]
 }
