@@ -298,11 +298,8 @@ proc retainTextEditorForInspector*(v: View) =
 
 proc execSelectedTextStyle*(v: View, command: string, value = "", hasValue = false): bool =
   ## Apply an inspector control to the selected words in the open label.
-  v.textEditor.field.setData("qgInlineCommand", command)
   v.captureTextSelection()
-  if not v.hasSelectedTextRange():
-    v.textEditor.field.setData("qgInlineOutcome", "no-range")
-    return false
+  if not v.hasSelectedTextRange(): return false
   let saved = v.textEditor.range
   v.textEditor.field.focus(preventScroll = true)
   let selection = document.invoke("getSelection").toNode
@@ -331,10 +328,8 @@ proc execSelectedTextStyle*(v: View, command: string, value = "", hasValue = fal
     saved.call("insertNode", wrapper)
     selectContents(wrapper)
     result = true
-    v.textEditor.field.setData("qgInlineOutcome", "wrapped")
   else:
     result = execCommand(command, value, hasValue)
-    v.textEditor.field.setData("qgInlineOutcome", "command")
   v.captureTextSelection()
 
 proc openTextEditor(v: View, d: Val) =
@@ -433,7 +428,6 @@ proc execTextCommand*(v: View, command: string, value = "", hasValue = false): b
   ## Runs a browser editing command inside the open label.
   if not v.textEditor.open: return false
   v.captureTextSelection()
-  v.textEditor.field.setData("qgTextCommandRange", if v.hasSelectedTextRange(): "yes" else: "no")
   if v.hasSelectedTextRange(): return v.execSelectedTextStyle(command, value, hasValue)
   v.textEditor.field.focus(preventScroll = true)
   execCommand(command, value, hasValue)

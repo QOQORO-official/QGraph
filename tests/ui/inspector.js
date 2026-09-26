@@ -38,12 +38,10 @@ const {chromium} = require('./pw');
   const selectionBeforeBold = await page.evaluate(() => getSelection().toString());
   await page.locator('.qg-panel-inspector [data-page=text] button[title=Bold]').click();
   assert.equal(await page.locator('.pixel-text-input').count(), 1, 'label stays open while formatting');
-  const boldTrace = await page.locator('.pixel-text-input').evaluate(field => ({html: field.innerHTML,
-    command: field.dataset.qgInlineCommand, outcome: field.dataset.qgInlineOutcome,
-    range: field.dataset.qgTextCommandRange, selection: getSelection().toString()}));
+  const boldHtml = await page.locator('.pixel-text-input').evaluate(field => field.innerHTML);
   await page.evaluate(() => window.graph.finishTextEdit(true));
   const node = await page.evaluate(() => JSON.parse(window.graph.toJSON()).items.find(item => item.id === 'range-test'));
-  assert.ok(node.richText, `selected formatting survived: color ${colorHtml}, selection ${selectionBeforeBold}, bold ${JSON.stringify(boldTrace)}`);
+  assert.ok(node.richText, `selected formatting survived: color ${colorHtml}, selection ${selectionBeforeBold}, bold ${boldHtml}`);
   assert.equal(node.textColor, '#172033', 'base color stays unchanged');
   const runs = node.richText.blocks.flatMap(block => block.runs);
   assert.equal(runs.map(run => run.text).join(''), 'Alpha Beta Gamma');

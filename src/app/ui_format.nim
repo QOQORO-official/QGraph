@@ -158,14 +158,17 @@ proc styleSelect(ui: EditorUi, section: Node, key, label: string, values: openAr
 proc actionIcons(ui: EditorUi, section: Node, list: openArray[(string, string, string)]): Node {.discardable.} =
   ## A row of icon buttons that run actions, e.g. the alignment controls.
   let row = iconRow(section)
+  proc bindAction(button: Node, actionName: string) =
+    # Each call gets its own captured argument. Capturing a loop-local here
+    # makes every button run the last action in the row.
+    button.on("click", proc(e: Event) = ui.run(actionName))
   for (iconName, title, action) in list:
     let button = iconButton(iconName, title)
     # Keeping focus in an open label lets text commands apply to the
     # selected range instead of closing the editor first.
     button.on("pointerdown", proc(e: Event) = e.preventDefault())
     button.on("mousedown", proc(e: Event) = e.preventDefault())
-    let name = action
-    button.on("click", proc(e: Event) = ui.run(name))
+    bindAction(button, action)
     row.appendChild(button)
   row
 
