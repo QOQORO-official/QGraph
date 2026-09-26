@@ -143,7 +143,18 @@ proc nextList(targets: seq[string]): string =
 
 proc expr(item: Val, key, fallback: string): string =
   let text = jsTrim(blockField(item, key))
-  if text.len == 0: fallback else: "(" & text & ")"
+  let authored = if text.len == 0: fallback else: "(" & text & ")"
+  "(if __input[" & luaQuote(key) & "] ~= nil then __input[" & luaQuote(key) &
+    "] else " & authored & ")"
+
+proc namedPort(node, anchor: Val): string =
+  if node == nil or anchor == nil: return ""
+  let direction = anchor.so("portKind", "")
+  if direction notin ["input", "output"]: return ""
+  let labels = portLabels(node, direction)
+  let index = int(num(anchor["portIndex"]))
+  if anchor["portIndex"].isNum and index >= 0 and index < labels.len: labels[index][0]
+  else: anchor.so("portName", "")
 
 proc blockBody(item: Val, outs: seq[(string, string)], body: var seq[string]): string =
   ## Appends the Luau for one block; returns an error message or "".
@@ -153,9 +164,16 @@ proc blockBody(item: Val, outs: seq[(string, string)], body: var seq[string]): s
   for (_, t) in outs: targets.add t
   let next = "\treturn " & nextList(targets)
   let vsType = if item["vsType"].isStr: item["vsType"].s else: ""
+  template finishWith(value: string) =
+    if item.tr("portsEnabled"):
+      body.add "\t__ports[" & luaQuote(id) & "] = __ports[" & luaQuote(id) & "] or {}"
+      for port in variablePorts(item):
+        if port.direction == "output":
+          body.add "\t__ports[" & luaQuote(id) & "][" & luaQuote(port.name) & "] = " & value
+    body.add next
   case vsType
   of "start":
-    body.add next
+    finishWith("nil")
   of "luau", "process", "function":
     let code = blockField(item, "code")
     if jsTrim(code).len > 0:
@@ -163,13 +181,13 @@ proc blockBody(item: Val, outs: seq[(string, string)], body: var seq[string]): s
       for line in code.split('\n'): body.add line
       body.add "\tend)()"
       body.add "\tif __result ~= nil then result = __result end"
-    body.add next
+    finishWith("result")
   of "set":
     let name = jsTrim(blockField(item, "name"))
     if not isLuauName(name, dotted = true):
       return "“" & name & "” is not a variable name (letters, digits and _, not starting with a digit)"
     body.add "\t" & name & " = " & expr(item, "value", "nil")
-    body.add next
+    finishWith(name)
   of "condition":
     let (yes, no) = splitBranches(outs, falseLabels)
     body.add "\tif " & expr(item, "test", "false") & " then return " & nextList(yes) & " end"
@@ -213,17 +231,17 @@ proc blockBody(item: Val, outs: seq[(string, string)], body: var seq[string]): s
     let mode = blockField(item, "mode")
     body.add "\toutput(" & expr(item, "value", "nil") & ", " &
       luaQuote(if mode in ["console", "alert"]: mode else: "block") & ")"
-    body.add next
+    finishWith(expr(item, "value", "nil"))
   of "ask":
     let name = jsTrim(blockField(item, "name"))
     if not isLuauName(name, dotted = true):
       return "“" & name & "” is not a variable name"
     body.add "\t" & name & " = prompt(" & expr(item, "message", "\"\"") & ", " &
       expr(item, "default", "nil") & ")"
-    body.add next
+    finishWith(name)
   of "delay":
     body.add "\twait(" & expr(item, "seconds", "1") & ")"
-    body.add next
+    finishWith("nil")
   of "shape":
     let target = jsTrim(blockField(item, "target"))
     let prop = jsTrim(blockField(item, "property"))
@@ -232,7 +250,7 @@ proc blockBody(item: Val, outs: seq[(string, string)], body: var seq[string]): s
     body.add "\tlocal target = doc.find(" & luaQuote(target) & ")"
     body.add "\tif target == nil then error(" & luaQuote("there is no shape labelled “" & target & "”") & ", 0) end"
     body.add "\tdoc.set(target.id, { " & prop & " = " & expr(item, "value", "nil") & " })"
-    body.add next
+    finishWith(expr(item, "value", "nil"))
   of "input":
     # Documents from the earlier editor: an Input card exports variables.
     try:
@@ -246,11 +264,11 @@ proc blockBody(item: Val, outs: seq[(string, string)], body: var seq[string]): s
           body.add "\t" & name & " = " &
             (if v.eqs("type", "number") and number == number: jsStr(number) else: luaQuote(value))
     except JsonError: discard
-    body.add next
+    finishWith("nil")
   else:
     body.add "\twarn(" & luaQuote((if label.len > 0: label else: vsType) &
       ": this kind of block does not run here, so it was skipped") & ")"
-    body.add next
+    finishWith("nil")
   ""
 
 proc compileScript(ui: EditorUi, entryIds: seq[string] = @[]): ScriptProgram =
@@ -267,14 +285,20 @@ proc compileScript(ui: EditorUi, entryIds: seq[string] = @[]): ScriptProgram =
     result.error = "There are no script blocks yet. Add a Start block from the Script tab."
     return
   var outs = initTable[string, seq[(string, string)]]()
+  var dataInputs = initTable[string, seq[(string, string, string)]]()
   var incoming = initHashSet[string]()
   for item in g.items:
     if not item.eqs("type", "edge") or item["visible"].isFalse: continue
     let source = valStr(item["sourceId"])
     let target = valStr(item["targetId"])
     if source in isBlock and target in isBlock:
-      outs.mgetOrPut(source, @[]).add (edgeLabel(item), target)
-      incoming.incl target
+      let outputName = namedPort(g.byId.getOrDefault(source, nil), item["sourceAnchor"])
+      let inputName = namedPort(g.byId.getOrDefault(target, nil), item["targetAnchor"])
+      if outputName.len > 0 and inputName.len > 0:
+        dataInputs.mgetOrPut(target, @[]).add (inputName, source, outputName)
+      else:
+        outs.mgetOrPut(source, @[]).add (edgeLabel(item), target)
+        incoming.incl target
 
   proc byPosition(list: seq[Val]): seq[Val] =
     result = list
@@ -298,11 +322,16 @@ proc compileScript(ui: EditorUi, entryIds: seq[string] = @[]): ScriptProgram =
   var lines = @["--!nonstrict",
     "-- Generated by QGraph from the diagram's script blocks.",
     "local __nodes = {}",
-    "local __loops = {}"]
+    "local __loops = {}",
+    "local __ports = {}"]
   for item in blocks:
     let first = lines.len + 1
     lines.add "__nodes[" & luaQuote(idOf(item)) & "] = function() -- " &
       plainText(item).replace("\n", " ")
+    lines.add "\tlocal __input = {}"
+    for (inputName, sourceId, outputName) in dataInputs.getOrDefault(idOf(item), @[]):
+      lines.add "\t__input[" & luaQuote(inputName) & "] = __ports[" & luaQuote(sourceId) &
+        "] and __ports[" & luaQuote(sourceId) & "][" & luaQuote(outputName) & "]"
     let error = blockBody(item, outs.getOrDefault(idOf(item), @[]), lines)
     if error.len > 0:
       result.error = error

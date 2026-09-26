@@ -1027,6 +1027,11 @@ proc segmentAction(g: Graph, world: Pt, noSnap: bool) =
 proc pointerDown*(g: Graph, ev: PointerEv): int =
   let world = g.eventWorld(ev.screen)
   g.lastPointer = world
+  if g.interactionLocked:
+    if ev.button != 0 and ev.button != 1: return 0
+    let m = viewMetrics()
+    g.action = Action(kind: "pan", startScreen: ev.screen, scrollLeft: m.scrollLeft, scrollTop: m.scrollTop)
+    return FlagCapture or FlagPrevent
   if ev.button == 1 or g.spacePressed:
     let m = viewMetrics()
     g.action = Action(kind: "pan", startScreen: ev.screen, scrollLeft: m.scrollLeft, scrollTop: m.scrollTop)
@@ -1168,6 +1173,9 @@ proc pointerLeave*(g: Graph) = g.hideTooltip()
 proc pointerMove*(g: Graph, ev: PointerEv): int =
   let world = g.eventWorld(ev.screen)
   g.lastPointer = world
+  if g.interactionLocked and g.action == nil:
+    g.setCursor("grab")
+    return 0
   if g.action == nil:
     let control = g.hitControl(world)
     let hit = if control.found: nil else: g.hitTest(world)

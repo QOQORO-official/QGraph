@@ -583,6 +583,9 @@ proc installEvents(v: View) =
         v.overlayCanvas.call("releasePointerCapture", e.pointerId)
       if (flags and FlagPrevent) != 0: e.preventDefault())
   v.overlayCanvas.on("dblclick", proc(e: Event) =
+    if v.g.interactionLocked:
+      e.preventDefault()
+      return
     let flags = v.g.doubleClick(v.pointerEv(e))
     if (flags and FlagPrevent) != 0: e.preventDefault())
   v.overlayCanvas.on("contextmenu", proc(e: Event) =

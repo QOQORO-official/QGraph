@@ -2,7 +2,7 @@
 ## bounds. A direct port of PixelGeometry from the JavaScript editor, working
 ## on the dynamic item objects of the retained scene.
 
-import std/[math, tables]
+import std/[math, tables, strutils]
 import jsval
 
 type
@@ -12,6 +12,11 @@ type
     x*, y*, width*, height*: float64
   Scene* = Table[string, Val]
     ## id -> item, the painter's `items` Map and the graph's `byId`.
+  VariablePort* = object
+    name*, dataType*, direction*, side*: string
+    index*: int
+    anchor*: Val
+    point*: Pt
 
 proc pt*(x, y: float64): Pt {.inline.} = Pt(x: x, y: y)
 proc rect*(x, y, w, h: float64): Rect {.inline.} = Rect(x: x, y: y, width: w, height: h)
@@ -102,6 +107,37 @@ proc nodeH*(n: Val): float64 = num(n["height"])
 proc nodeCenter*(node: Val): Pt {.inline.} =
   pt(nodeX(node) + nodeW(node) / 2, nodeY(node) + nodeH(node) / 2)
 
+proc portLabels*(node: Val, direction: string): seq[(string, string)] =
+  let source = if direction == "input": node.so("inputPorts", "In")
+               else: node.so("outputPorts", "Out")
+  for entry in source.replace(';', ',').replace('\n', ',').split(','):
+    if result.len >= 8: break
+    let parts = entry.strip().split(':', maxsplit = 1)
+    let name = parts[0].strip()
+    if name.len == 0: continue
+    result.add (name, if parts.len > 1: parts[1].strip().toLowerAscii() else: "any")
+
+proc variablePorts*(node: Val): seq[VariablePort] =
+  if not node.tr("portsEnabled") or node.eqs("type", "edge"): return
+  let center = nodeCenter(node)
+  for direction in ["input", "output"]:
+    let entries = portLabels(node, direction)
+    let side = if direction == "input": "west" else: "east"
+    let x = if direction == "input": 0.0 else: 1.0
+    for i, entry in entries:
+      let y = float64(i + 1) / float64(entries.len + 1)
+      let anchor = newObj()
+      anchor["x"] = jnum(x)
+      anchor["y"] = jnum(y)
+      anchor["side"] = jstr(side)
+      anchor["portKind"] = jstr(direction)
+      anchor["portIndex"] = jnum(i)
+      anchor["portName"] = jstr(entry[0])
+      let p = pt(nodeX(node) + x * nodeW(node), nodeY(node) + y * nodeH(node))
+      result.add VariablePort(name: entry[0], dataType: entry[1], direction: direction,
+                              side: side, index: i, anchor: anchor,
+                              point: rotatePoint(p, center, rot(node)))
+
 proc nodePort*(node: Val, side: string): Pt =
   let center = nodeCenter(node)
   var p = center
@@ -113,6 +149,15 @@ proc nodePort*(node: Val, side: string): Pt =
 
 proc nodeAnchor*(node: Val, anchor: Val, fallbackSide: string): Pt =
   ## Normalised anchor on a node, glued through move/resize/rotate.
+  if node.tr("portsEnabled") and anchor != nil and anchor["portIndex"].isNum:
+    let direction = anchor.so("portKind", "")
+    let entries = portLabels(node, direction)
+    let index = int(num(anchor["portIndex"]))
+    if direction in ["input", "output"] and index >= 0 and index < entries.len:
+      let x = if direction == "input": 0.0 else: 1.0
+      let y = float64(index + 1) / float64(entries.len + 1)
+      return rotatePoint(pt(nodeX(node) + x * nodeW(node), nodeY(node) + y * nodeH(node)),
+                         nodeCenter(node), rot(node))
   if nullish(anchor) or not isFiniteNum(num(anchor["x"])) or not isFiniteNum(num(anchor["y"])):
     return nodePort(node, if fallbackSide.len > 0: fallbackSide else: "east")
   let center = nodeCenter(node)

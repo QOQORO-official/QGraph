@@ -1480,6 +1480,30 @@ proc drawNode*(p: ScenePainter, ctx: Ctx, node: Val) =
   elif node.eqs("kind", "visualScript"): p.drawVisualScript(ctx, node)
   elif node.eqs("shape", "table"): p.drawTableCells(ctx, node)
   else: p.drawNodeText(ctx, node)
+  if node.tr("portsEnabled"):
+    ctx.font = "11px Arial, sans-serif"
+    ctx.textBaseline = "middle"
+    for port in variablePorts(node):
+      let color = case port.dataType
+        of "float", "number", "int": "#06b6d4"
+        of "bool", "boolean": "#818cf8"
+        of "text", "string": "#eab308"
+        else: "#38bdf8"
+      # The node's transform is already active. Use its local boundary point;
+      # the painter applies rotation and flipping with the shape.
+      let x = if port.direction == "input": nodeX(node) else: nodeX(node) + nodeW(node)
+      let y = nodeY(node) + float64(port.index + 1) /
+        float64(portLabels(node, port.direction).len + 1) * nodeH(node)
+      ctx.beginPath()
+      ctx.arc(x, y, 5.5, 0, PI * 2)
+      ctx.fillStyle = "#ffffff"
+      ctx.fill()
+      ctx.strokeStyle = color
+      ctx.lineWidth = 2
+      ctx.stroke()
+      ctx.fillStyle = node.so("textColor", "#172033")
+      ctx.textAlign = if port.direction == "input": "left" else: "right"
+      ctx.fillText(port.name, x + (if port.direction == "input": 12.0 else: -12.0), y)
   ctx.restore()
 
 # -------------------------------------------------------------- render --

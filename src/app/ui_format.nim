@@ -349,6 +349,18 @@ proc buildFormat(ui: EditorUi) =
   connectorRoute.on("input", proc(e: Event) = updateArcRows())
   connectorRoute.on("change", proc(e: Event) = updateArcRows())
   updateArcRows()
+
+  let ports = card(stylePanel, "Variable sockets", "connector")
+  ui.styleCheckbox(ports, "portsEnabled", "Show named sockets",
+    proc(value: string): Val = o1("portsEnabled", jbool(value.len > 0)),
+    "Variable Sockets", nodesOnly)
+  ui.styleInput(ports, "inputPorts", "Inputs", "text",
+    proc(value: string): Val = o1("inputPorts", jstr(value)), "Input Sockets", nodesOnly)
+  ui.styleInput(ports, "outputPorts", "Outputs", "text",
+    proc(value: string): Val = o1("outputPorts", jstr(value)), "Output Sockets", nodesOnly)
+  let portHint = el("small", "qg-field-hint")
+  portHint.text = "Comma-separated names, optionally Name:type (float, bool, text). Drag an output socket to an input socket."
+  ports.appendChild(portHint)
   let arrows = [("none", "None"), ("block", "Block"), ("open", "Open"), ("oval", "Oval"), ("diamond", "Diamond")]
   let arrowRow = fieldRow(connector)
   ui.styleSelect(arrowRow, "startArrow", "Start", arrows,
@@ -566,6 +578,9 @@ proc updateFormat*(ui: EditorUi) =
   set("fontSize", valStr(common("fontSize", jnum(14))))
   toggle("strikethrough", common("strikethrough", jfalse).isTrue)
   toggle("wordWrap", not common("wordWrap", jtrue).isFalse)
+  toggle("portsEnabled", common("portsEnabled", jfalse).isTrue)
+  set("inputPorts", valStr(common("inputPorts", jstr("In"))))
+  set("outputPorts", valStr(common("outputPorts", jstr("Out"))))
   set("textAlign", valStr(common("textAlign", jstr("center"))))
   set("verticalAlign", valStr(common("verticalAlign", jstr("middle"))))
   set("lineStyle", valStr(common("lineStyle", jstr("orthogonal"))))

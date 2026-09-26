@@ -23,6 +23,19 @@ proc setTheme(ui: EditorUi, theme: string) =
     ui.themeButton.html = iconMarkup(if theme == "dark": "sun" else: "moon")
     ui.themeButton.setAttribute("title", if theme == "dark": "Light theme" else: "Dark theme")
 
+proc setCanvasLocked(ui: EditorUi, locked: bool) =
+  ui.canvasLocked = locked
+  if ui.editor != nil:
+    ui.graph.g.interactionLocked = locked
+    if locked: ui.graph.g.setSelection(@[])
+    ui.graph.drawOverlay()
+  if not ui.canvasLockButton.isNil:
+    ui.canvasLockButton.html = iconMarkup(if locked: "lock" else: "unlock")
+    ui.canvasLockButton.setAttribute("title", if locked: "Unlock canvas interactions" else: "Lock canvas for panning")
+    ui.canvasLockButton.setAttribute("aria-label", if locked: "Unlock canvas interactions" else: "Lock canvas for panning")
+    ui.canvasLockButton.setAttribute("aria-pressed", if locked: "true" else: "false")
+    ui.canvasLockButton.toggleClass("is-active", locked)
+
 proc modeFor(width: float64): LayoutMode =
   if width < 700: lmPhone elif width < 1100: lmTablet else: lmDesktop
 

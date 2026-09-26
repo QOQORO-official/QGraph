@@ -205,6 +205,7 @@ type
     layers*: Val
     activeLayer*: string
     mobileMode*: bool
+    interactionLocked*: bool
     readOnly*: bool
     extra*: Val               ## any other property the page sets on the graph
     painter*: ScenePainter    ## the realtime painter (shares the scene)

@@ -2329,7 +2329,53 @@ button {
 .qg-app[data-layout="phone"] .qg-select {
     height: 38px;
     width: 150px;
+    max-width: 100%;
     font-size: 16px;
+}
+
+.qg-app[data-layout="phone"] .qg-panel,
+.qg-app[data-layout="phone"] .qg-panel-body,
+.qg-app[data-layout="phone"] .qg-card,
+.qg-app[data-layout="phone"] .qg-card-body,
+.qg-app[data-layout="phone"] .qg-field-control {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.qg-app[data-layout="phone"] .qg-sheet {
+    max-height: calc(100dvh - 52px - env(safe-area-inset-top));
+}
+
+.qg-app[data-layout="phone"] .qg-button-row .qg-btn {
+    flex: 1 1 112px;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    height: auto;
+    min-height: 40px;
+    text-align: center;
+}
+
+.qg-app[data-layout="phone"] .qg-script-runbar > .qg-btn {
+    flex: 1 1 100px;
+    min-width: 0;
+}
+
+@media (max-width: 380px) {
+    .qg-app[data-layout="phone"] .qg-topbar-end > .qg-iconbtn:nth-child(-n+2) {
+        display: none;
+    }
+    .qg-app[data-layout="phone"] .qg-field:not(.qg-field-stack) {
+        flex-wrap: wrap;
+    }
+    .qg-app[data-layout="phone"] .qg-field-control {
+        flex: 1 1 100%;
+    }
+    .qg-app[data-layout="phone"] .qg-field-control > .qg-input,
+    .qg-app[data-layout="phone"] .qg-field-control > .qg-select {
+        width: 100%;
+    }
 }
 
 .qg-app[data-layout="phone"] .qg-field-row .qg-input,

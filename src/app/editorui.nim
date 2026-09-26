@@ -84,7 +84,8 @@ type
     topbar, menubar, rail, workspace, leftDock, rightDock, stage, diagram: Node
     quickbar, zoomDock, zoomLabel, statusChip, statusLeft, statusRight, selPill: Node
     tabbar, sheetBackdrop, sheet, sheetTitle, sheetBody, floatLayer: Node
-    docName, themeButton, inspectorToggle: Node
+    docName, themeButton, canvasLockButton, inspectorToggle: Node
+    canvasLocked: bool
     fileInput, toastElement, imageInput: Node
     libraryPanel, inspectorPanel, layersPanel, outlinePanel, menuPanel, scriptPanel: Node
     leftPane: string

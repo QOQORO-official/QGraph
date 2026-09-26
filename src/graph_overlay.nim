@@ -168,7 +168,7 @@ proc drawTableRowMoveHandles(g: Graph, ctx: Ctx, node: Val) =
 proc drawPortArrows(g: Graph, ctx: Ctx, node: Val) =
   let ports = g.getPortArrows(node)
   let activeSide = if g.action != nil and g.action.kind == "connect": g.action.sourceSide else: "\0"
-  if g.connectionPoints or g.portMode == "outline":
+  if not node.tr("portsEnabled") and (g.connectionPoints or g.portMode == "outline"):
     let anchors = g.getConnectionAnchors(node)
     ctx.save()
     ctx.strokeStyle = "#00b8d9"
@@ -221,7 +221,8 @@ proc drawSelectedNode(g: Graph, ctx: Ctx, node: Val, controls: bool) =
     if node.eqs("shape", "table"):
       g.drawTableResizeHandles(ctx, node)
       g.drawTableRowMoveHandles(ctx, node)
-    if g.action == nil and not node["connectable"].isFalse: g.drawPortArrows(ctx, node)
+    if g.action == nil and not node["connectable"].isFalse and not node.tr("portsEnabled"):
+      g.drawPortArrows(ctx, node)
   elif node.tr("locked"):
     ctx.fillStyle = "#4b5563"
     ctx.font = jsNumStr(13 / g.zoom) & "px Arial, sans-serif"

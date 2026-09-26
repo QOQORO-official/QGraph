@@ -146,6 +146,12 @@ proc nearestNodeAnchor(g: Graph, node: Val, world: Pt): AnchorInfo =
 
 proc getConnectionAnchors(g: Graph, node: Val): seq[Handle] =
   ## Dense connection points around the outline (the classic X markers).
+  if node.tr("portsEnabled"):
+    for port in variablePorts(node):
+      if port.direction == "input":
+        result.add Handle(kind: "port", side: port.side, anchorSpec: port.anchor,
+                          anchor: port.point, point: port.point, cursor: "crosshair")
+    return
   var specs: seq[Handle]
   var seen = initHashSet[string]()
   proc push(localPoint: Pt) =
@@ -204,6 +210,15 @@ proc classicCardinalAnchor(g: Graph, node: Val, referencePoint: Pt, referenceSid
 
 proc snappedNodeAnchor(g: Graph, node: Val, world: Pt, referencePoint: Pt,
                        referenceSide: string, hasReference: bool): AnchorInfo =
+  if node.tr("portsEnabled"):
+    for port in variablePorts(node):
+      if port.direction != "input": continue
+      let distance = hypot(world.x - port.point.x, world.y - port.point.y)
+      if distance <= 14 / g.zoom and (not result.found or distance < result.distance):
+        result = AnchorInfo(found: true, node: node, anchor: clone(port.anchor),
+                            side: port.side, point: port.point, distance: distance,
+                            snapped: true)
+    return
   let outline = g.nearestNodeAnchor(node, world)
   let anchors = g.getConnectionAnchors(node)
   var best = -1
@@ -271,6 +286,7 @@ proc findConnectionTarget(g: Graph, world: Pt, ignoreId: string, referencePoint:
   candidates.sort(compareConnectionCandidates)
   for c in candidates:
     let info = g.snappedNodeAnchor(c, world, referencePoint, referenceSide, hasReference)
+    if not info.found: continue
     let distance = if info.hasOutlineDistance: info.outlineDistance else: info.distance
     if g.pointInNode(world, c) or distance <= tolerance: return info
 
@@ -509,6 +525,12 @@ proc getCustomHandles(g: Graph, node: Val): seq[Handle] =
   handles
 
 proc getPortArrows(g: Graph, node: Val): seq[Handle] =
+  if node.tr("portsEnabled"):
+    for port in variablePorts(node):
+      if port.direction == "output":
+        result.add Handle(kind: "port", side: port.side, anchorSpec: port.anchor,
+                          anchor: port.point, point: port.point, cursor: "crosshair")
+    return
   let distance = 24 / g.zoom
   let center = nodeCenter(node)
   for side in ["north", "east", "south", "west"]:
@@ -643,13 +665,20 @@ proc normalizeEdgeRoute(g: Graph, edge: Val) =
 
 proc hitNodeConnectionControl(g: Graph, item: Val, world: Pt): HitControl =
   if item == nil or item.eqs("type", "edge") or item.tr("locked") or item["connectable"].isFalse or
-      not g.connectionArrows or g.portMode == "outline": return
+      (not item.tr("portsEnabled") and (not g.connectionArrows or g.portMode == "outline")): return
   for port in g.getPortArrows(item):
     if hypot(world.x - port.point.x, world.y - port.point.y) <= 14 / g.zoom:
       return HitControl(found: true, item: item, control: port)
 
 proc hitControl*(g: Graph, world: Pt): HitControl =
   let radius = 12 / g.zoom
+  # Named sockets are live even before selecting the node.
+  for id in g.index.query(rect(world.x - radius, world.y - radius, radius * 2, radius * 2)):
+    let item = g.byId.getOrDefault(id, nil)
+    if item != nil and item.tr("portsEnabled") and not item["visible"].isFalse and
+        not item.tr("foldedAway") and not g.isLayerLocked(item):
+      let port = g.hitNodeConnectionControl(item, world)
+      if port.found: return port
   let selected = g.getSelection()
   let groups = g.getSelectedGroups()
   if groups.len == 1 and groups[0].items.len == selected.len:
