@@ -6,10 +6,10 @@
 proc setCursor(g: Graph, cursor: string) =
   if cursor == g.cursor: return
   g.cursor = cursor
-  discard hostCall(HostCursor, toJson(obj(("cursor", jstr(cursor)))))
+  if g.hooks.cursor != nil: g.hooks.cursor(cursor)
 
 proc hideTooltip*(g: Graph) =
-  discard hostCall(HostTooltip, toJson(obj(("hide", jtrue))))
+  if g.hooks.tooltip != nil: g.hooks.tooltip(false, "", "")
 
 proc updateTooltip(g: Graph, hit: Val) =
   var text = ""
@@ -19,7 +19,7 @@ proc updateTooltip(g: Graph, hit: Val) =
   if not g.tooltipsEnabled or text.len == 0:
     g.hideTooltip()
     return
-  discard hostCall(HostTooltip, toJson(obj(("id", hit["id"]), ("text", jstr(text)))))
+  if g.hooks.tooltip != nil: g.hooks.tooltip(true, idOf(hit), text)
 
 proc hitFoldingBadge(g: Graph, world: Pt, node: Val): bool =
   world.x >= nodeX(node) + 2 and world.x <= nodeX(node) + 17 and
@@ -510,7 +510,7 @@ proc stopDragAutoScroll(g: Graph) =
   g.dragAutoScroll = false
   if g.dragAutoScrollTimer:
     g.dragAutoScrollTimer = false
-    discard hostCall(HostTimer, toJson(obj(("name", jstr("autoscroll")), ("cancel", jtrue))))
+    if g.hooks.timer != nil: g.hooks.timer("autoscroll", 0, true)
 
 proc updateDragAutoScroll(g: Graph, screen: Pt, alt: bool) =
   if g.pageView or g.action == nil or g.action.kind != "move":
@@ -536,7 +536,7 @@ proc updateDragAutoScroll(g: Graph, screen: Pt, alt: bool) =
   g.dragAutoScrollNoSnap = alt
   if g.dragAutoScrollTimer: return
   g.dragAutoScrollTimer = true
-  discard hostCall(HostTimer, toJson(obj(("name", jstr("autoscroll")), ("ms", jnum(30)))))
+  if g.hooks.timer != nil: g.hooks.timer("autoscroll", 30, false)
 
 proc dragAutoScrollTick*(g: Graph) =
   g.dragAutoScrollTimer = false
@@ -553,7 +553,7 @@ proc dragAutoScrollTick*(g: Graph) =
   g.moveAction(world, g.dragAutoScrollNoSnap)
   if g.dragAutoScroll and g.action != nil and g.action.kind == "move":
     g.dragAutoScrollTimer = true
-    discard hostCall(HostTimer, toJson(obj(("name", jstr("autoscroll")), ("ms", jnum(30)))))
+    if g.hooks.timer != nil: g.hooks.timer("autoscroll", 30, false)
 
 proc followMovedConnectorCorners(g: Graph, action: Action, movedIds: HashSet[string],
                                  dx, dy: float64): seq[Val] =
@@ -1455,7 +1455,7 @@ proc openLink*(g: Graph, href0: string): bool =
   if href.toLowerAscii().startsWith("javascript:"):
     g.toast("JavaScript links are not allowed")
     return false
-  discard hostCall(HostOpenLink, toJson(obj(("href", jstr(href)))))
+  if g.hooks.openLink != nil: g.hooks.openLink(href)
   true
 
 # ------------------------------------------------------ text editing --
@@ -1628,7 +1628,7 @@ proc startTextEdit*(g: Graph, node: Val, scope: EditScope = EditScope()) =
     node.del("richText")
   g.rendererUpsert([node], true)
   g.render(true)
-  discard hostCall(HostTextEditorOpen, toJson(description))
+  if g.hooks.textEditorOpen != nil: g.hooks.textEditorOpen(description)
 
 proc editAdjacentTask(g: Graph, node: Val, index, direction: int) =
   let next = index + direction
@@ -1655,15 +1655,10 @@ proc finishTextEdit*(g: Graph, commit: bool) =
   let data = g.textEditor
   g.textEditor = TextEditorState(taskIndex: -1, richBlockIndex: -1)
   # The page reads the editable field: its plain text and parsed rich model.
-  let reply = hostCall(HostTextEditorClose)
   var plain = ""
   var edited: Val = nil
-  if reply.len > 0:
-    try:
-      let r = parseJson(reply)
-      plain = strOrEmpty(r["plain"])
-      edited = r["model"]
-    except JsonError: discard
+  if g.hooks.textEditorClose != nil:
+    (plain, edited) = g.hooks.textEditorClose()
   let node = data.node
 
   if data.richBlockIndex >= 0:

@@ -145,7 +145,7 @@ proc getViewState*(g: Graph): Val
 proc isGesture(g: Graph): bool
 proc render*(g: Graph, forceRealtime = false)
 proc getLayoutBounds(g: Graph): (bool, Rect)
-proc setSpacer(width, height: float64)
+proc setSpacer(g: Graph, width, height: float64)
 proc updateWorldSize*(g: Graph)
 proc setZoom*(g: Graph, value0: float64, hasPoint = false, sx = 0.0, sy = 0.0)
 proc zoomIn*(g: Graph)

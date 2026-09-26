@@ -397,11 +397,10 @@ proc toHtml*(model: Val): string =
 
 # ------------------------------------------------------- HTML -> model --
 
+var fromHtmlHook*: proc(html: string): Val
+  ## Installed by the application: parses HTML with the browser's parser.
+
 proc fromHtml*(html: string): Val =
-  ## Parsed by the page with the browser's HTML parser.
-  let reply = hostCall(HostRichFromHtml, html)
-  if reply.len == 0: return fromPlain(html)
-  try:
-    parseJson(reply)
-  except JsonError:
-    fromPlain(html)
+  if fromHtmlHook == nil: return fromPlain(html)
+  let model = fromHtmlHook(html)
+  if model == nil: fromPlain(html) else: model

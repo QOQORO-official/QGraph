@@ -42,6 +42,10 @@ proc srcId(v: Val): float64 =
   srcCache[key] = (v, id)
   float64(id)
 
+var mediaHook*: proc(ctx: Ctx, node: Val)
+  ## Draws an image/video node's picture (installed by the application);
+  ## without it the node is handed to the page as a media op.
+
 proc mediaJson(node: Val): string =
   let o = newObj()
   for k in ["x", "y", "width", "height"]:
@@ -1317,7 +1321,8 @@ proc drawNode*(p: ScenePainter, ctx: Ctx, node: Val) =
   if node.eqs("shape", "image"):
     ctx.save()
     ctx.clip()
-    ctx.media(mediaJson(node))
+    if mediaHook != nil: mediaHook(ctx, node)
+    else: ctx.media(mediaJson(node))
     ctx.restore()
     p.traceNode(ctx, node)
 

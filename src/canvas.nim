@@ -57,6 +57,9 @@ const
   OpRadialGrad* = 42.0
   OpColorStop* = 43.0
   OpMedia* = 44.0
+  OpDrawImage* = 45.0
+  OpDrawImage9* = 46.0
+  OpFillPattern* = 47.0
 
 type
   CtxState = object
@@ -356,3 +359,27 @@ var currentCmd*: ptr seq[float64]
 proc media*(c: Ctx, nodeJson: string) =
   ## Hands an image/video node to the page's media painter (drawImageNode).
   c.op(OpMedia, float64(strId(nodeJson)))
+
+proc drawImage*(c: Ctx, source: int32, dx, dy, dw, dh: float64) =
+  ## ctx.drawImage(handle, dx, dy, dw, dh); `source` is a page handle
+  ## (image, video, canvas or bitmap).
+  c.buf.add OpDrawImage
+  c.buf.add float64(source)
+  c.buf.add dx
+  c.buf.add dy
+  c.buf.add dw
+  c.buf.add dh
+
+proc drawImage*(c: Ctx, source: int32, sx, sy, sw, sh, dx, dy, dw, dh: float64) =
+  c.buf.add OpDrawImage9
+  c.buf.add float64(source)
+  for v in [sx, sy, sw, sh, dx, dy, dw, dh]: c.buf.add v
+
+proc fillPattern*(c: Ctx, source: int32, repetition = 0) =
+  ## fillStyle = createPattern(source, ["repeat", "repeat-x", "repeat-y",
+  ## "no-repeat"][repetition]).
+  c.st.fillStyle = ""
+  c.st.fillGrad = -2
+  c.buf.add OpFillPattern
+  c.buf.add float64(source)
+  c.buf.add float64(repetition)

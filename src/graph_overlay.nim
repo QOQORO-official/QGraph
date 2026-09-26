@@ -474,4 +474,4 @@ proc drawOverlay*(g: Graph) =
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.finish()
   currentCmd = addr ctx.buf
-  discard hostCall(HostOverlay)
+  if g.hooks.overlay != nil: g.hooks.overlay(ctx)

@@ -91,13 +91,21 @@ proc hostCall*(op: int32, payload: string = ""): string =
 type ViewMetrics* = object
   clientWidth*, clientHeight*, scrollLeft*, scrollTop*, dpr*: float64
 
+var viewMetricsHook*: proc(): ViewMetrics
+var setScrollHook*: proc(left, top: float64)
+  ## The scrolling container the engine lays the world out in; installed by
+  ## the application. NaN leaves an axis alone.
+
 proc viewMetrics*(): ViewMetrics =
+  if viewMetricsHook != nil: return viewMetricsHook()
   var buf: array[5, float64]
   qg_view_metrics(addr buf[0])
   ViewMetrics(clientWidth: buf[0], clientHeight: buf[1], scrollLeft: buf[2],
               scrollTop: buf[3], dpr: buf[4])
 
-proc setScroll*(left, top: float64) {.inline.} = qg_set_scroll(left, top)
+proc setScroll*(left, top: float64) =
+  if setScrollHook != nil: setScrollHook(left, top)
+  else: qg_set_scroll(left, top)
 
 const
   HostEmit* = 1'i32              ## {name, data}

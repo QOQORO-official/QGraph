@@ -144,6 +144,23 @@ type
     originalTableTitle: Val
     originalRich: Val
 
+  GraphHooks* = object
+    ## How the engine reaches the page. The application installs these; every
+    ## one is optional.
+    emit*: proc(name: string, data: Val)
+    render*: proc(view: Val, realtime: bool)
+    spacer*: proc(width, height: float64)
+    rendererSync*: proc(media: Val)
+    rendererUpsert*: proc(ids: seq[string], deferWorker: bool, media: Val)
+    rendererRemove*: proc(ids: seq[string])
+    overlay*: proc(ctx: Ctx)
+    cursor*: proc(cursor: string)
+    tooltip*: proc(show: bool, id, text: string)
+    timer*: proc(name: string, ms: float64, cancel: bool)
+    openLink*: proc(href: string)
+    textEditorOpen*: proc(d: Val)
+    textEditorClose*: proc(): (string, Val)
+
   Graph* = ref object
     items*: seq[Val]
     byId*: Scene
@@ -200,6 +217,7 @@ type
     dragAutoScrollNoSnap: bool
     dragAutoScrollTimer: bool
     cursor: string            ## last cursor sent to the overlay canvas
+    hooks*: GraphHooks
 
 # ---------------------------------------------------------------- helpers --
 
@@ -336,7 +354,7 @@ proc jsKeysOf[T](t: OrderedTable[string, T]): seq[string] =
   for k in t.keys: ks.add k
   jsKeys(ks)
 
-proc idsVal(ids: openArray[string]): Val =
+proc idsVal*(ids: openArray[string]): Val =
   result = newArr()
   for id in ids: result.push jstr(id)
 
@@ -344,7 +362,7 @@ proc itemsVal(items: openArray[Val]): Val =
   result = newArr()
   for it in items: result.push it
 
-proc strOrEmpty(v: Val): string =
+proc strOrEmpty*(v: Val): string =
   if nullish(v): "" else: str(v)
 
 proc anchorSpec(side: string): Val =
@@ -353,7 +371,7 @@ proc anchorSpec(side: string): Val =
   result["y"] = jnum(if side == "north": 0.0 elif side == "south": 1.0 else: 0.5)
   result["side"] = jstr(side)
 
-proc obj(pairs: varargs[(string, Val)]): Val =
+proc obj*(pairs: varargs[(string, Val)]): Val =
   result = newObj()
   for (k, v) in pairs: result.put(k, v)
 

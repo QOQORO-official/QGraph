@@ -6,7 +6,7 @@
 ## in the command buffer (qg_cmd_ptr / qg_cmd_len) for the canvas player.
 
 import std/tables
-import jsval, host, canvas, painter, stencils, geometry
+import jsval, host, canvas, painter, stencils, geometry, richtext
 
 {.pragma: wexport, exportc,
   codegenDecl: "__attribute__((export_name(\"$2\"))) $1 $2$3".}
@@ -139,10 +139,55 @@ import graph as graphmod
 
 var theGraph: Graph
 
+proc legacyHooks(): GraphHooks =
+  ## The page facade (web/js/Graph.js) receives engine callbacks as JSON
+  ## host calls.
+  result.emit = proc(name: string, data: Val) =
+    let payload = newObj()
+    payload["name"] = jstr(name)
+    if data != nil: payload["data"] = data
+    discard hostCall(HostEmit, toJson(payload))
+  result.render = proc(view: Val, realtime: bool) =
+    discard hostCall(HostRender, toJson(obj(("view", view), ("realtime", jbool(realtime)))))
+  result.spacer = proc(width, height: float64) =
+    discard hostCall(HostSpacer, toJson(obj(("width", jnum(width)), ("height", jnum(height)))))
+  result.rendererSync = proc(media: Val) =
+    discard hostCall(HostRendererSync, toJson(obj(("media", media))))
+  result.rendererUpsert = proc(ids: seq[string], deferWorker: bool, media: Val) =
+    let payload = obj(("ids", idsVal(ids)), ("defer", jbool(deferWorker)))
+    if media != nil: payload["media"] = media
+    discard hostCall(HostRendererUpsert, toJson(payload))
+  result.rendererRemove = proc(ids: seq[string]) =
+    discard hostCall(HostRendererRemove, toJson(obj(("ids", idsVal(ids)))))
+  result.overlay = proc(ctx: Ctx) = discard hostCall(HostOverlay)
+  result.cursor = proc(cursor: string) =
+    discard hostCall(HostCursor, toJson(obj(("cursor", jstr(cursor)))))
+  result.tooltip = proc(show: bool, id, text: string) =
+    if show: discard hostCall(HostTooltip, toJson(obj(("id", jstr(id)), ("text", jstr(text)))))
+    else: discard hostCall(HostTooltip, toJson(obj(("hide", jtrue))))
+  result.timer = proc(name: string, ms: float64, cancel: bool) =
+    if cancel: discard hostCall(HostTimer, toJson(obj(("name", jstr(name)), ("cancel", jtrue))))
+    else: discard hostCall(HostTimer, toJson(obj(("name", jstr(name)), ("ms", jnum(ms)))))
+  result.openLink = proc(href: string) =
+    discard hostCall(HostOpenLink, toJson(obj(("href", jstr(href)))))
+  result.textEditorOpen = proc(d: Val) = discard hostCall(HostTextEditorOpen, toJson(d))
+  result.textEditorClose = proc(): (string, Val) =
+    let reply = hostCall(HostTextEditorClose)
+    if reply.len == 0: return ("", nil)
+    try:
+      let r = parseJson(reply)
+      (strOrEmpty(r["plain"]), r["model"])
+    except JsonError: ("", nil)
+
 proc qg_graph_new(mobileMode: int32): int32 {.wexport.} =
   ## Creates the editor; returns the handle of its realtime painter, which
   ## shares the editor's scene.
+  fromHtmlHook = proc(html: string): Val =
+    let reply = hostCall(HostRichFromHtml, html)
+    if reply.len == 0: return nil
+    try: parseJson(reply) except JsonError: nil
   theGraph = newGraph(mobileMode != 0)
+  theGraph.hooks = legacyHooks()
   painters.add theGraph.painter
   int32(painters.len - 1)
 

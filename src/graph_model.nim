@@ -5,10 +5,7 @@
 # ------------------------------------------------------------ bridge --
 
 proc emit(g: Graph, name: string, data: Val = nil) =
-  let payload = newObj()
-  payload["name"] = jstr(name)
-  if data != nil: payload["data"] = data
-  discard hostCall(HostEmit, toJson(payload))
+  if g.hooks.emit != nil: g.hooks.emit(name, data)
 
 proc getSelection(g: Graph): seq[Val] =
   for id in g.selection:
@@ -28,28 +25,21 @@ proc mediaItems(items: openArray[Val]): Val =
 
 proc rendererSync(g: Graph) =
   g.painter.sync(g.items)
-  let payload = newObj()
-  payload["media"] = mediaItems(g.items)
-  discard hostCall(HostRendererSync, toJson(payload))
+  if g.hooks.rendererSync != nil: g.hooks.rendererSync(mediaItems(g.items))
 
 proc rendererUpsert(g: Graph, items: openArray[Val], deferWorker = false) =
   if items.len == 0: return
   g.painter.upsert(items)
-  let payload = newObj()
-  let ids = newArr()
-  for it in items: ids.push it["id"]
-  payload["ids"] = ids
-  payload["defer"] = jbool(deferWorker)
-  let media = mediaItems(items)
-  if media.len > 0: payload["media"] = media
-  discard hostCall(HostRendererUpsert, toJson(payload))
+  if g.hooks.rendererUpsert != nil:
+    var ids: seq[string]
+    for it in items: ids.add idOf(it)
+    let media = mediaItems(items)
+    g.hooks.rendererUpsert(ids, deferWorker, if media.len > 0: media else: nil)
 
 proc rendererRemove(g: Graph, ids: openArray[string]) =
   if ids.len == 0: return
   g.painter.remove(ids)
-  let payload = newObj()
-  payload["ids"] = idsVal(ids)
-  discard hostCall(HostRendererRemove, toJson(payload))
+  if g.hooks.rendererRemove != nil: g.hooks.rendererRemove(@ids)
 
 proc toast(g: Graph, text: string) = g.emit("toast", jstr(text))
 
@@ -2243,8 +2233,7 @@ proc isGesture(g: Graph): bool =
 proc render*(g: Graph, forceRealtime = false) =
   if g.destroyed: return
   let view = g.getViewState()
-  let payload = obj(("view", view), ("realtime", jbool(forceRealtime or g.isGesture())))
-  discard hostCall(HostRender, toJson(payload))
+  if g.hooks.render != nil: g.hooks.render(view, forceRealtime or g.isGesture())
   g.drawOverlay()
 
 proc getLayoutBounds(g: Graph): (bool, Rect) =
@@ -2267,8 +2256,8 @@ proc getLayoutBounds(g: Graph): (bool, Rect) =
       r.height = bottom - r.y
   (found, r)
 
-proc setSpacer(width, height: float64) =
-  discard hostCall(HostSpacer, toJson(obj(("width", jnum(width)), ("height", jnum(height)))))
+proc setSpacer(g: Graph, width, height: float64) =
+  if g.hooks.spacer != nil: g.hooks.spacer(width, height)
 
 proc updateWorldSize*(g: Graph) =
   let (hasBounds, layoutBounds) = g.getLayoutBounds()
@@ -2313,7 +2302,7 @@ proc updateWorldSize*(g: Graph) =
     setScroll(m.scrollLeft + (g.worldOriginX - oldPageOriginX) * zoom, NaN)
     m = viewMetrics()
     setScroll(NaN, m.scrollTop + (g.worldOriginY - oldPageOriginY) * zoom)
-    setSpacer(ceil(jsMax(viewportWidth, margin * 2 + g.pageColumns * pageWidth) * zoom),
+    g.setSpacer(ceil(jsMax(viewportWidth, margin * 2 + g.pageColumns * pageWidth) * zoom),
               ceil(jsMax(viewportHeight, margin * 2 + g.pageRows * pageHeight) * zoom))
     return
 
@@ -2343,7 +2332,7 @@ proc updateWorldSize*(g: Graph) =
   g.pageRows = 1
   g.pageStartColumn = 0
   g.pageStartRow = 0
-  setSpacer(ceil(g.infiniteWorldWidth * zoom), ceil(g.infiniteWorldHeight * zoom))
+  g.setSpacer(ceil(g.infiniteWorldWidth * zoom), ceil(g.infiniteWorldHeight * zoom))
 
 proc setZoom*(g: Graph, value0: float64, hasPoint = false, sx = 0.0, sy = 0.0) =
   let old = g.zoom
