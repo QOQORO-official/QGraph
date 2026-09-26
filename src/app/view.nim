@@ -280,16 +280,11 @@ proc finishTextEdit*(v: View, commit = true) =
 proc captureTextSelection*(v: View) =
   if not v.textEditor.open: return
   let selection = document.invoke("getSelection").toNode
-  if selection.isNil or selection.getNum("rangeCount") < 1:
-    if same(activeElement(), v.textEditor.field): v.textEditor.range = nilNode
-    return
+  if selection.isNil or selection.getNum("rangeCount") < 1: return
   let range = selection.invoke("getRangeAt", 0).toNode
-  if range.isNil or range.getBool("collapsed"):
-    if same(activeElement(), v.textEditor.field): v.textEditor.range = nilNode
-    return
+  if range.isNil or range.getBool("collapsed"): return
   if not v.textEditor.field.contains(range.getNode("startContainer")) or
       not v.textEditor.field.contains(range.getNode("endContainer")):
-    if same(activeElement(), v.textEditor.field): v.textEditor.range = nilNode
     return
   v.textEditor.range = range.invoke("cloneRange").toNode
 
@@ -392,8 +387,12 @@ proc openTextEditor(v: View, d: Val) =
       return
     e.stopPropagation())
   field.on("pointerdown", proc(e: Event) = e.stopPropagation())
-  field.on("keyup", proc(e: Event) = v.captureTextSelection())
-  field.on("mouseup", proc(e: Event) = v.captureTextSelection())
+  field.on("keyup", proc(e: Event) =
+    v.textEditor.range = nilNode
+    v.captureTextSelection())
+  field.on("mouseup", proc(e: Event) =
+    v.textEditor.range = nilNode
+    v.captureTextSelection())
   field.on("blur", proc(e: Event) =
     if v.keepTextEditorOnBlur:
       v.keepTextEditorOnBlur = false
