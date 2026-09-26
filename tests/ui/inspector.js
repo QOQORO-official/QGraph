@@ -45,8 +45,10 @@ const {chromium} = require('./pw');
   assert.equal(node.textColor, '#172033', 'base color stays unchanged');
   const runs = node.richText.blocks.flatMap(block => block.runs);
   assert.equal(runs.map(run => run.text).join(''), 'Alpha Beta Gamma');
-  assert.equal(runs.filter(run => run.text.includes('Beta')).every(run => run.color === '#e5484d' && run.bold), true);
-  assert.equal(runs.filter(run => run.text.includes('Alpha') || run.text.includes('Gamma')).every(run => !run.bold && run.color !== '#e5484d'), true);
+  const isAccent = color => ['#e5484d', 'rgb(229,72,77)'].includes((color || '').toLowerCase().replace(/\s/g, ''));
+  const selectedRuns = runs.filter(run => run.text.includes('Beta'));
+  assert.equal(selectedRuns.length > 0 && selectedRuns.every(run => isAccent(run.color) && run.bold), true);
+  assert.equal(runs.filter(run => run.text.includes('Alpha') || run.text.includes('Gamma')).every(run => !run.bold && !isAccent(run.color)), true);
 
   await page.evaluate(() => {
     window.graph.addNode({id: 'block-test', kind: 'visualScript', vsType: 'set',
