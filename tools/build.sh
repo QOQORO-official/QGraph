@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Build the QGraph engine: Nim -> C -> freestanding wasm32 -> web/js/qgraph.wasm
+# Build QGraph: Nim -> C -> freestanding wasm32 -> web/js/qgraph.wasm
 #
 # No emscripten, no WASI sysroot. Nim emits C, clang cross-compiles it for
 # wasm32 against the stub headers in build/inc plus build/libc.c, and wasm-ld
 # links one module. Its only imports are the small `env` host interface the
-# page provides (canvas text metrics, Math, events), see web/js/QGraphWasm.js.
+# page provides (DOM command buffer, events, timers, workers, canvas replay),
+# see web/js/qweb.js. The entry point is src/app/main.nim.
 #
 # Requirements: clang + wasm-ld (LLVM >= 11) and a Nim 2.0.x compiler. If
 # `nim` is not on PATH the pinned linux-x64 release is downloaded into a local
@@ -50,7 +51,7 @@ rm -rf "$NC"
   -d:danger --opt:speed \
   --noMain:on --compileOnly:on --nimcache:"$NC" \
   --header:off --hints:off \
-  "$ROOT/src/qgraph.nim"
+  "$ROOT/${ENTRY:-src/app/main.nim}"
 
 # --- 2. C -> wasm objects -------------------------------------------------
 echo ">> clang: compiling C -> wasm32 objects"

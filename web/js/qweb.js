@@ -15,9 +15,11 @@
  *     module synchronously, so Nim decides preventDefault/stopPropagation.
  *   - Canvas: Nim records Canvas2D calls into a float64 list replayed here.
  *   - Timers, animation frames, fetch, files, storage, downloads.
- *   - Workers and threads: every worker runs this same file and the same
- *     module; with cross-origin isolation the threaded build shares one
- *     WebAssembly memory between the page and its worker threads.
+ *   - Workers: every worker runs this same file and the same compiled
+ *     module (the application picks each worker's role); messages carry
+ *     raw bytes plus transferable objects such as ImageBitmaps.
+ *   - Automation: window.<name> proxies whose reads and calls are answered
+ *     by the module, for scripts and tests.
  *
  * Nothing in here knows about diagrams.
  */
@@ -151,7 +153,10 @@
 
     /* Removes an element and forgets every handle and listener inside it. */
     Host.prototype.dropTree = function(h) {
-        var node = this.obj(h);
+        this.dropNode(this.obj(h));
+    };
+
+    Host.prototype.dropNode = function(node) {
         if (node == null) return;
         if (node.parentNode) node.parentNode.removeChild(node);
         var released = [];
@@ -317,6 +322,12 @@
                     break;
                 }
                 case 27: this.bind(i32(), this.obj(i32())); break;
+                case 28: {
+                    // Empty an element, forgetting every handle and listener inside.
+                    node = this.obj(i32());
+                    while (node && node.firstChild) this.dropNode(node.firstChild);
+                    break;
+                }
                 default:
                     throw new Error('qweb: unknown DOM op ' + op + ' at ' + (p - 4));
             }
@@ -737,7 +748,7 @@
                 // (entities, implied tags, CSSOM-normalised inline styles).
                 var text = host.decode(htmlPtr, htmlLen);
                 var rootNode;
-                if (mode === 1) {
+                if ((mode & 1) !== 0) {
                     var doc = new DOMParser().parseFromString(text, 'image/svg+xml');
                     if (doc.getElementsByTagName('parsererror').length) {
                         return host.setReply(JSON.stringify({ error: doc.getElementsByTagName('parsererror')[0].textContent }));
@@ -748,7 +759,7 @@
                     rootNode.innerHTML = text;
                     rootNode = rootNode.content;
                 }
-                return host.setReply(JSON.stringify(snapshot(rootNode)));
+                return host.setReply(JSON.stringify(snapshot(rootNode, (mode & 2) !== 0, (mode & 1) !== 0)));
             },
 
             // -- events --------------------------------------------------
@@ -917,6 +928,16 @@
             },
 
             // -- workers ---------------------------------------------------
+            // -- callbacks and the automation surface --------------------
+            qw_callback: function(id) {
+                // A plain JS function that dispatches to a Nim listener with
+                // its first argument as the event (observers, promises).
+                return host.handle(function(arg) { host.dispatch(id, arg); });
+            },
+            qw_expose: function(ptr, len) {
+                var name = host.decode(ptr, len);
+                if (!isWorker) root[name] = host.apiProxy(name);
+            },
             qw_worker_new: function(kind) { return host.spawnWorker(kind); },
             qw_post: function(target, ptr, len, handlesPtr, handleCount) {
                 host.post(target, new Uint8Array(host.memory.buffer, ptr, len).slice(),
@@ -935,13 +956,21 @@
         return { env: env };
     };
 
-    function snapshot(node) {
+    /* Browser-parsed tree as plain JSON. Text nodes are strings; comments
+       are {m}; elements are {t (tagName), l (localName), a (attributes),
+       s (non-empty inline style properties), c (children)}. With `markup`
+       set, table cells carry innerHTML (h) and tables outerHTML (o). */
+    function snapshot(node, markup, svg) {
+        var SVG_PROPS = ['fill', 'stroke', 'stroke-width', 'opacity', 'stroke-dasharray',
+            'font-family', 'font-size', 'font-weight', 'font-style', 'text-anchor',
+            'marker-start', 'marker-end'];
         var STYLE_PROPS = ['backgroundColor', 'color', 'textAlign', 'fontWeight', 'fontFamily',
             'fontSize', 'fontStyle', 'textDecoration', 'textDecorationLine', 'verticalAlign',
             'opacity', 'whiteSpace', 'padding', 'borderColor', 'borderWidth', 'borderStyle',
             'width', 'height'];
         function walk(n) {
             if (n.nodeType === 3) return n.nodeValue;
+            if (n.nodeType === 8) return { m: n.nodeValue };
             if (n.nodeType !== 1 && n.nodeType !== 11) return null;
             var out = { c: [] };
             if (n.nodeType === 1) {
@@ -957,13 +986,26 @@
                         if (v) { s[STYLE_PROPS[p]] = v; any = true; }
                     }
                     if (any) out.s = s;
+                    if (svg) {
+                        var props = {};
+                        var anyProp = false;
+                        for (var q = 0; q < SVG_PROPS.length; q++) {
+                            var pv = n.style.getPropertyValue(SVG_PROPS[q]);
+                            if (pv) { props[SVG_PROPS[q]] = pv; anyProp = true; }
+                        }
+                        if (anyProp) out.p = props;
+                    }
                 }
-                out.h = n.innerHTML;
-                out.o = n.outerHTML;
-                if (n.tagName === 'TD' || n.tagName === 'TH') {
-                    out.cs = n.colSpan;
-                    out.rs = n.rowSpan;
+                if (markup) {
+                    if (n.tagName === 'TD' || n.tagName === 'TH') {
+                        out.h = n.innerHTML;
+                        out.cs = n.colSpan;
+                        out.rs = n.rowSpan;
+                    }
+                    if (n.tagName === 'TABLE') out.o = n.outerHTML;
                 }
+                // A <template> keeps its children in .content.
+                if (n.tagName === 'TEMPLATE' && n.content) n = n.content;
             }
             for (var c = n.firstChild; c; c = c.nextSibling) {
                 var child = walk(c);
@@ -983,6 +1025,50 @@
             len = bytes.length;
         }
         this.exports.qw_on_complete(id, failed, ptr, len, handle || 0);
+    };
+
+    /* ------------------------------------------------------------------ */
+    /* Automation surface                                                  */
+    /* ------------------------------------------------------------------ */
+
+    /* window[name] for scripts and tests: every property read or call is
+       answered by the application's qw_api export, so objects that live in
+       Nim look like ordinary JS objects. Replies are JSON:
+       {t:'f'} function, {t:'o'} nested object, {t:'v', v} value,
+       {t:'n', h} page object handle, {e} error. */
+    Host.prototype.api = function(path, op, args) {
+        var text = JSON.stringify(args || [], function(key, value) {
+            if (value === undefined && key !== '') return '\u0001undefined';
+            return value;
+        });
+        var pathBytes = encoder.encode(path);
+        var argBytes = encoder.encode(text);
+        var pp = this.alloc(pathBytes);
+        var ap = this.alloc(argBytes);
+        var n = this.exports.qw_api(pp, pathBytes.length, op, ap, argBytes.length);
+        var reply = JSON.parse(this.decode(this.exports.qw_api_ptr(), n) || '{}');
+        if (reply.e) throw new Error(reply.e);
+        if (reply.t === 'f') {
+            var host = this;
+            return function() { return host.api(path, 1, Array.prototype.slice.call(arguments)); };
+        }
+        if (reply.t === 'o') return this.apiProxy(path);
+        if (reply.t === 'n') return this.obj(reply.h);
+        return reply.v;
+    };
+
+    Host.prototype.apiProxy = function(path) {
+        var host = this;
+        return new Proxy({}, {
+            get: function(target, prop) {
+                if (typeof prop !== 'string' || prop === 'then') return undefined;
+                return host.api(path + '.' + prop, 0, null);
+            },
+            set: function(target, prop, value) {
+                host.api(path + '.' + String(prop), 2, [value]);
+                return true;
+            }
+        });
     };
 
     /* ------------------------------------------------------------------ */
@@ -1110,11 +1196,8 @@
     Host.base = scriptBase();
     Host.version = versionQuery();
 
-    /* Chooses the threaded build when the page is cross-origin isolated. */
     Host.wasmUrl = function() {
-        var threaded = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated &&
-            typeof SharedArrayBuffer !== 'undefined' && !/[?&]threads=0/.test(String(root.location && root.location.search));
-        return Host.base + (threaded ? 'qgraph-mt.wasm' : 'qgraph.wasm') + Host.version;
+        return Host.base + 'qgraph.wasm' + Host.version;
     };
 
     function compile(url) {
@@ -1144,14 +1227,7 @@
     /* Page entry: load the module and run the application's main. */
     function start() {
         var url = Host.wasmUrl();
-        return compile(url).catch(function(error) {
-            // The threaded build is optional; fall back to the plain one.
-            if (/qgraph-mt/.test(url)) {
-                url = Host.base + 'qgraph.wasm' + Host.version;
-                return compile(url);
-            }
-            throw error;
-        }).then(function(module) {
+        return compile(url).then(function(module) {
             var host = new Host({});
             host.wasmUrl = url;
             var memory = sharedMemoryFor(module);

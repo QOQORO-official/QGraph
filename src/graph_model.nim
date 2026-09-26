@@ -7,7 +7,7 @@
 proc emit(g: Graph, name: string, data: Val = nil) =
   if g.hooks.emit != nil: g.hooks.emit(name, data)
 
-proc getSelection(g: Graph): seq[Val] =
+proc getSelection*(g: Graph): seq[Val] =
   for id in g.selection:
     let it = g.byId.getOrDefault(id, nil)
     if it != nil: result.add it

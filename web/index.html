@@ -3,42 +3,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <meta name="description" content="Pixel-native canvas diagram editor; the scene engine and painter run as Nim compiled to WebAssembly.">
+    <meta name="description" content="Pixel-native canvas diagram editor written in Nim and compiled to WebAssembly: the editor, its UI, file formats, media and painting all run in the module; the page only hosts it.">
     <title>Visual Script Editor — Pixel Canvas</title>
     <link rel="stylesheet" type="text/css" href="styles/grapheditor.css">
-
-    <script type="text/javascript" src="js/QGraphWasm.js"></script>
-    <script type="text/javascript" src="js/ClassicPalette.js"></script>
-    <script type="text/javascript" src="js/ShapeSvg.js"></script>
-    <script type="text/javascript" src="js/GifDecoder.js"></script>
-    <script type="text/javascript" src="js/GifPlayer.js"></script>
-    <script type="text/javascript" src="js/MediaPlayer.js"></script>
-    <script type="text/javascript" src="js/RichText.js"></script>
-    <script type="text/javascript" src="js/Stencils.js"></script>
-    <script type="text/javascript" src="js/MxGraphFormat.js"></script>
-    <script type="text/javascript" src="js/CanvasPaint.js"></script>
-    <script type="text/javascript" src="js/CanvasRenderer.js"></script>
-    <script type="text/javascript" src="js/Graph.js"></script>
-    <script type="text/javascript" src="js/Editor.js"></script>
-    <script type="text/javascript" src="js/SvgMxGraphConverter.js"></script>
-    <script type="text/javascript" src="js/Actions.js"></script>
-    <script type="text/javascript" src="js/Menus.js"></script>
-    <script type="text/javascript" src="js/Toolbar.js"></script>
-    <script type="text/javascript" src="js/Sidebar.js"></script>
-    <script type="text/javascript" src="js/EditorUi.js"></script>
-    <script type="text/javascript">
-        // The editor starts once the engine module is instantiated; the
-        // chrome is the same markup the canvas editor always built.
-        window.addEventListener('DOMContentLoaded', function() {
-            QGraphWasm.load().then(function() {
-                window.editorUi = new EditorUi(document.body);
-                window.graph = window.editorUi.editor.graph;
-            }).catch(function(error) {
-                console.error(error);
-                document.body.textContent = 'The diagram engine could not be loaded: ' + error.message;
-            });
-        });
-    </script>
+    <!-- The generic host: DOM command buffer, events, timers, workers. The
+         application itself is js/qgraph.wasm. -->
+    <script type="text/javascript" src="js/qweb.js"></script>
 </head>
 <body class="geEditor">
 </body>

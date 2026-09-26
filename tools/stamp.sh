@@ -4,8 +4,8 @@
 #
 # GitHub Pages caches every file independently, so right after a deploy a
 # browser can pair a new index.html with old scripts or an old engine. The
-# page's script and stylesheet URLs get ?v=<version>; QGraphWasm.js carries
-# the same query to qgraph.wasm and to the render worker.
+# page's script and stylesheet URLs get ?v=<version>; qweb.js carries the
+# same query to qgraph.wasm and to every worker it starts.
 set -euo pipefail
 SITE="$1"
 VER="$2"
@@ -18,7 +18,7 @@ sed -i -E \
 printf '{"version":"%s"}\n' "$VER" > "$SITE/version.json"
 
 # Fail the deploy rather than ship a half-stamped site.
-grep -q "js/QGraphWasm.js?v=$VER" "$SITE/index.html"
+grep -q "js/qweb.js?v=$VER" "$SITE/index.html"
 grep -q "styles/grapheditor.css?v=$VER" "$SITE/index.html"
 ! grep -qE 'src="js/[A-Za-z0-9_-]+\.js"' "$SITE/index.html"
 echo ">> stamped $SITE as version $VER"

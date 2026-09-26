@@ -8,7 +8,10 @@ const path = require('path');
 const scenarios = require('./scenarios');
 
 const ORIG = process.env.ORIG || 'http://localhost:8124/index.html';
-const NEW = process.env.NEW || 'http://localhost:8123/web/index.html';
+// One render band: a banded frame is rasterised at different canvas offsets,
+// which moves antialiasing by sub-pixel amounts, so strict pixel parity is
+// checked on the single-band path.
+const NEW = process.env.NEW || 'http://localhost:8123/web/index.html?bands=1';
 // Regions that legitimately differ: the sidebar tab strip (no Visual Script
 // tab) and the frame-time readout in the status bar.
 const TOLERANCE = Number(process.env.TOLERANCE || 40);

@@ -358,7 +358,7 @@ proc idsVal*(ids: openArray[string]): Val =
   result = newArr()
   for id in ids: result.push jstr(id)
 
-proc itemsVal(items: openArray[Val]): Val =
+proc itemsVal*(items: openArray[Val]): Val =
   result = newArr()
   for it in items: result.push it
 

@@ -297,6 +297,10 @@ proc alias*(n: Node): Node =
   result = newNode()
   wI32(27); wI32(int32(result)); wI32(int32(n))
 
+proc dropChildren*(n: Node) =
+  ## Empties the element, releasing every handle and listener inside it.
+  wI32(28); wI32(int32(n))
+
 # Convenience -------------------------------------------------------------
 
 proc el*(tag: string, cls = ""): Node =
@@ -442,10 +446,12 @@ proc execCommand*(command: string, value: string = "", hasValue = false): bool =
   qw_exec_command(sp(command), int32(command.len), sp(value), int32(value.len),
                   if hasValue: 1 else: 0) != 0
 
-proc domSnapshot*(markup: string, svg = false): string =
-  ## Browser-parsed tree of `markup` as JSON (see qweb.js snapshot()).
+proc domSnapshot*(markup: string, svg = false, withMarkup = false): string =
+  ## Browser-parsed tree of `markup` as JSON (see qweb.js snapshot()): the
+  ## HTML parser into a template, or the XML parser for SVG.
   flush()
-  takeReply(qw_dom_snapshot(sp(markup), int32(markup.len), if svg: 1 else: 0))
+  let mode = (if svg: 1'i32 else: 0'i32) or (if withMarkup: 2'i32 else: 0'i32)
+  takeReply(qw_dom_snapshot(sp(markup), int32(markup.len), mode))
 
 # ----------------------------------------------------------------- canvas --
 
@@ -633,8 +639,8 @@ proc storageSet*(key, value: string): bool =
   var buf: seq[byte]
   encodeArg(buf, toArg(key))
   encodeArg(buf, toArg(value))
-  const m = "setItem"
-  qw_invoke(int32(localStorage), unsafeAddr m[0], int32(m.len), addr buf[0], int32(buf.len), 2) >= 0
+  var m = "setItem"
+  qw_invoke(int32(localStorage), addr m[0], int32(m.len), addr buf[0], int32(buf.len), 2) >= 0
 
 # ----------------------------------------------------------------- workers --
 
@@ -704,3 +710,62 @@ proc qw_on_message(fromId: int32, p: pointer, n: int32, hp: ptr UncheckedArray[i
 proc qw_on_worker_error(id: int32) {.wexport.} =
   if onWorkerError != nil: onWorkerError(id)
   flush()
+
+# ------------------------------------------------------- callbacks and api --
+
+proc qw_callback(id: int32): int32 {.importc, cdecl.}
+proc qw_expose(p: pointer, n: int32) {.importc, cdecl.}
+
+proc callback*(handler: proc(e: Event)): Node =
+  ## A JS function object that calls `handler` with its first argument as
+  ## the event: for observers and other APIs that take a callback.
+  let id = nextListener
+  inc nextListener
+  listeners[id] = handler
+  flush()
+  Node(qw_callback(id))
+
+type
+  ApiKind* = enum apiValue, apiFunction, apiObject, apiNode, apiError
+  ApiReply* = object
+    kind*: ApiKind
+    json*: string     ## value JSON, or the error text
+    node*: Node
+
+var apiHandler*: proc(path: string, op: int, argsJson: string): ApiReply
+  ## Answers the automation surface: op 0 reads `path`, 1 calls it with the
+  ## JSON argument array, 2 assigns the first argument to it.
+var apiOut: string
+
+proc expose*(name: string) =
+  ## Defines window[name] as a proxy answered by `apiHandler`.
+  flush()
+  qw_expose(sp(name), int32(name.len))
+
+proc qw_api(pp: pointer, pn: int32, op: int32, ap: pointer, an: int32): int32 {.wexport.} =
+  let path = copyOut(pp, pn)
+  let args = copyOut(ap, an)
+  if pp != nil: c_free(pp)
+  if ap != nil: c_free(ap)
+  var reply = ApiReply(kind: apiError, json: "no handler")
+  if apiHandler != nil: reply = apiHandler(path, int(op), args)
+  flush()
+  apiOut = case reply.kind
+    of apiValue: "{\"t\":\"v\",\"v\":" & (if reply.json.len == 0: "null" else: reply.json) & "}"
+    of apiFunction: "{\"t\":\"f\"}"
+    of apiObject: "{\"t\":\"o\"}"
+    of apiNode: "{\"t\":\"n\",\"h\":" & $int32(reply.node) & "}"
+    of apiError:
+      var q = "{\"e\":\""
+      for c in reply.json:
+        case c
+        of '"': q.add "\\\""
+        of '\\': q.add "\\\\"
+        of '\n': q.add "\\n"
+        else:
+          if c < ' ': discard else: q.add c
+      q & "\"}"
+  int32(apiOut.len)
+
+proc qw_api_ptr(): pointer {.wexport.} =
+  if apiOut.len == 0: nil else: addr apiOut[0]
