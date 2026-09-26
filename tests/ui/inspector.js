@@ -32,8 +32,16 @@ const {chromium} = require('./pw');
     const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range);
     field.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
   });
+  console.log('Before inspector:', await page.evaluate(() => ({selection: getSelection().toString(),
+    selectedNodes: window.graph.getSelection().map(item => item.id),
+    active: document.activeElement?.className})));
   await page.locator('.qg-inspector-tabs [data-tab=text]').click();
+  console.log('After inspector tab:', await page.evaluate(() => ({selection: getSelection().toString(),
+    active: document.activeElement?.className,
+    disabled: document.querySelector('.qg-panel-inspector [data-page=text] input[type=color]').disabled})));
   await page.locator('.qg-panel-inspector [data-page=text] input[type=color]').fill('#e5484d');
+  console.log('After color:', await page.evaluate(() => ({selection: getSelection().toString(),
+    html: document.querySelector('.pixel-text-input')?.innerHTML})));
   await page.locator('.qg-panel-inspector [data-page=text] button[title=Bold]').click();
   assert.equal(await page.locator('.pixel-text-input').count(), 1, 'label stays open while formatting');
   const editorHtml = await page.locator('.pixel-text-input').evaluate(field => field.innerHTML);
@@ -60,7 +68,46 @@ const {chromium} = require('./pw');
   const block = await page.evaluate(() => JSON.parse(window.graph.toJSON()).items.find(item => item.id === 'block-test'));
   assert.equal(block.text, 'Saved title');
   assert.equal(block.visualScript.value, '42');
+
+  await page.evaluate(() => {
+    window.graph.addNode({id: 'socket-source', x: 365, y: 350, width: 190, height: 100,
+      shape: 'rect', text: 'Source', portsEnabled: true, outputPorts: 'value:float'}, false);
+    window.graph.addNode({id: 'socket-target', x: 670, y: 350, width: 190, height: 100,
+      shape: 'rect', text: 'Target', portsEnabled: true, inputPorts: 'value:float'}, false);
+    window.graph.setSelection(['socket-source']);
+  });
+  await page.locator('.qg-inspector-tabs [data-tab=style]').click();
+  assert.equal(await page.locator('.qg-panel-inspector [data-page=style] input[type=checkbox]').count() > 0, true);
+  const ports = await page.evaluate(() => {
+    const g = window.graph, r = g.container.getBoundingClientRect();
+    const xy = (x, y) => ({x: r.left + (x + (g.worldOriginX || 0)) * g.zoom - g.container.scrollLeft,
+      y: r.top + (y + (g.worldOriginY || 0)) * g.zoom - g.container.scrollTop});
+    return {from: xy(555, 400), to: xy(670, 400)};
+  });
+  await page.mouse.move(ports.from.x, ports.from.y);
+  await page.mouse.down();
+  await page.mouse.move(ports.to.x, ports.to.y, {steps: 8});
+  await page.mouse.up();
+  const edge = await page.evaluate(() => JSON.parse(window.graph.toJSON()).items.find(item =>
+    item.type === 'edge' && item.sourceId === 'socket-source' && item.targetId === 'socket-target'));
+  assert.equal(edge?.sourceAnchor?.portName, 'value', 'drag began at the named output socket');
+  assert.equal(edge?.targetAnchor?.portName, 'value', 'drag ended at the named input socket');
+
+  await page.locator('[title="Lock canvas for panning"]').click();
+  assert.equal(await page.evaluate(() => window.graph.getSelection().length), 0);
+  const sourceCenter = await page.evaluate(() => {
+    const g = window.graph, r = g.container.getBoundingClientRect();
+    return {x: r.left + (460 + (g.worldOriginX || 0)) * g.zoom - g.container.scrollLeft,
+      y: r.top + (400 + (g.worldOriginY || 0)) * g.zoom - g.container.scrollTop};
+  });
+  await page.mouse.click(sourceCenter.x, sourceCenter.y);
+  assert.equal(await page.evaluate(() => window.graph.getSelection().length), 0, 'canvas lock prevents selection');
+  await page.setViewportSize({width: 320, height: 640});
+  await page.waitForTimeout(200);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true,
+    'phone layout fits its viewport');
+  assert.equal(await page.locator('[title="Unlock canvas interactions"]').isVisible(), true);
   assert.deepEqual(errors, []);
-  console.log('Inspector selected-text formatting and visual block Save passed.');
+  console.log('Inspector text, block Save, variable sockets, canvas lock, and phone layout passed.');
   await browser.close();
 })().catch(error => {console.error(error); process.exit(1)});
