@@ -310,17 +310,30 @@ proc execSelectedTextStyle*(v: View, command: string, value = "", hasValue = fal
   if selection.isNil: return false
   selection.call("removeAllRanges")
   selection.call("addRange", saved)
-  if command == "fontSizePx":
-    # execCommand splits complex selections into valid inline elements. Turn
-    # only the newly created size-7 wrappers into the requested pixel size.
-    for old in v.textEditor.field.queryAll("font[size='7']"):
-      old.setData("qgPreexistingSize", "true")
-    result = execCommand("fontSize", "7", true)
-    for font in v.textEditor.field.queryAll("font[size='7']"):
-      if font.get2("dataset", "qgPreexistingSize").toStr != "true":
-        font.style("fontSize", value & "px")
-        font.removeAttribute("size")
-      else: font.deleteData("qgPreexistingSize")
+  if command in ["foreColor", "fontName", "fontSizePx", "bold", "italic", "underline", "strikeThrough"]:
+    # execCommand rewrites an earlier <font color> wrapper when Bold follows
+    # Color in Chromium. Wrap just the saved range instead, then reselect it
+    # so another inspector control can format the same words.
+    let active = if command in ["bold", "italic", "underline", "strikeThrough"]:
+      document.invoke("queryCommandState", command).toBool else: false
+    let wrapper = createElement("span")
+    case command
+    of "foreColor": wrapper.style("color", value)
+    of "fontName": wrapper.style("fontFamily", value)
+    of "fontSizePx": wrapper.style("fontSize", value & "px")
+    of "bold": wrapper.style("fontWeight", if active: "normal" else: "bold")
+    of "italic": wrapper.style("fontStyle", if active: "normal" else: "italic")
+    of "underline": wrapper.style("textDecoration", if active: "none" else: "underline")
+    of "strikeThrough": wrapper.style("textDecoration", if active: "none" else: "line-through")
+    else: discard
+    let fragment = saved.invoke("extractContents").toNode
+    if fragment.isNil: return false
+    wrapper.appendChild(fragment)
+    saved.call("insertNode", wrapper)
+    saved.call("selectNodeContents", wrapper)
+    selection.call("removeAllRanges")
+    selection.call("addRange", saved)
+    result = true
   else:
     result = execCommand(command, value, hasValue)
   v.captureTextSelection()

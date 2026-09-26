@@ -2288,11 +2288,20 @@ button {
     display: flex;
     left: 50%;
     bottom: 14px;
+    max-width: calc(100% - 16px);
     gap: 2px;
     padding: 4px;
     border-radius: 999px;
     transform: translateX(-50%);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+    touch-action: pan-x;
     animation: qg-pop .18s var(--ease);
+}
+
+.qg-app[data-layout="phone"].has-selection .qg-selpill::-webkit-scrollbar {
+    display: none;
 }
 
 .qg-app[data-layout="phone"].has-selection .qg-zoomdock {
@@ -2302,6 +2311,7 @@ button {
 .qg-app[data-layout="phone"] .qg-selpill .qg-iconbtn {
     width: 44px;
     height: 44px;
+    flex: 0 0 44px;
     border-radius: 999px;
 }
 

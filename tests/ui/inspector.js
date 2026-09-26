@@ -32,23 +32,12 @@ const {chromium} = require('./pw');
     const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range);
     field.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
   });
-  console.log('Before inspector:', await page.evaluate(() => ({selection: getSelection().toString(),
-    selectedNodes: window.graph.getSelection().map(item => item.id),
-    active: document.activeElement?.className})));
   await page.locator('.qg-inspector-tabs [data-tab=text]').click();
-  console.log('After inspector tab:', await page.evaluate(() => ({selection: getSelection().toString(),
-    active: document.activeElement?.className,
-    disabled: document.querySelector('.qg-panel-inspector [data-page=text] input[type=color]').disabled})));
   await page.locator('.qg-panel-inspector [data-page=text] input[type=color]').fill('#e5484d');
-  console.log('After color:', await page.evaluate(() => ({selection: getSelection().toString(),
-    html: document.querySelector('.pixel-text-input')?.innerHTML})));
   await page.locator('.qg-panel-inspector [data-page=text] button[title=Bold]').click();
   assert.equal(await page.locator('.pixel-text-input').count(), 1, 'label stays open while formatting');
-  const editorHtml = await page.locator('.pixel-text-input').evaluate(field => field.innerHTML);
-  console.log('Selected-label editor HTML:', editorHtml);
   await page.evaluate(() => window.graph.finishTextEdit(true));
   const node = await page.evaluate(() => JSON.parse(window.graph.toJSON()).items.find(item => item.id === 'range-test'));
-  if (!node.richText) console.log('Saved label without rich text:', JSON.stringify(node));
   assert.equal(node.textColor, '#172033', 'base color stays unchanged');
   const runs = node.richText.blocks.flatMap(block => block.runs);
   assert.equal(runs.map(run => run.text).join(''), 'Alpha Beta Gamma');
@@ -107,6 +96,12 @@ const {chromium} = require('./pw');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true,
     'phone layout fits its viewport');
   assert.equal(await page.locator('[title="Unlock canvas interactions"]').isVisible(), true);
+  await page.locator('[title="Unlock canvas interactions"]').click();
+  await page.evaluate(() => window.graph.setSelection(['socket-source']));
+  assert.equal(await page.locator('.qg-selpill').isVisible(), true);
+  assert.equal(await page.locator('.qg-selpill').evaluate(pill =>
+    pill.scrollWidth > pill.clientWidth && pill.getBoundingClientRect().right <= innerWidth), true,
+    'the crowded mobile selection toolbar scrolls within the screen');
   assert.deepEqual(errors, []);
   console.log('Inspector text, block Save, variable sockets, canvas lock, and phone layout passed.');
   await browser.close();

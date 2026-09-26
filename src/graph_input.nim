@@ -1250,7 +1250,10 @@ proc pointerMove*(g: Graph, ev: PointerEv): int =
           referencePoint = if action.terminal == "source": pts[^1] else: pts[0]
           hasReference = true
     let targetInfo = g.findConnectionTarget(world, ignoreId, referencePoint, referenceSide, hasReference)
-    if targetInfo.found:
+    let namedSource = action.kind == "connect" and action.sourceAnchor != nil and
+      action.sourceAnchor.eqs("portKind", "output")
+    let namedTarget = targetInfo.anchor != nil and targetInfo.anchor.eqs("portKind", "input")
+    if targetInfo.found and (not namedSource or namedTarget):
       action.targetId = idOf(targetInfo.node)
       action.targetSide = targetInfo.side
       action.targetAnchor = clone(targetInfo.anchor)
@@ -1309,8 +1312,9 @@ proc pointerUp*(g: Graph, ev: PointerEv): int =
   case action.kind
   of "connect":
     if not action.moved:
-      discard g.connectVertex(g.byId.getOrDefault(action.sourceId, nil), action.sourceSide,
-                              false, Pt(), action.before)
+      if action.sourceAnchor == nil or not action.sourceAnchor.eqs("portKind", "output"):
+        discard g.connectVertex(g.byId.getOrDefault(action.sourceId, nil), action.sourceSide,
+                                false, Pt(), action.before)
     elif action.targetId.len > 0:
       discard g.addEdge(obj(("sourceId", jstr(action.sourceId)), ("targetId", jstr(action.targetId)),
         ("sourceSide", jstr(action.sourceSide)),
