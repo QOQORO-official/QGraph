@@ -599,6 +599,7 @@ proc quoteJson*(res: var string, s: string) =
       res.add hexd[ord(c) shr 4]
       res.add hexd[ord(c) and 15]
     else: res.add c
+  res.add '"'
 
 type StrHook* = proc (v: Val): string {.closure.}
   ## Rewrites a string leaf while stringifying (the value node is passed so

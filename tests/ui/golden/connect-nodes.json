@@ -1,0 +1,106 @@
+{
+ "document": {
+  "format": "pixel-graph-v2",
+  "viewport": {
+   "zoom": 1
+  },
+  "diagram": {
+   "gridEnabled": true,
+   "gridSize": 10,
+   "gridColor": "#dfe4ea",
+   "backgroundColor": "#ffffff",
+   "pageView": false,
+   "pageWidth": 827,
+   "pageHeight": 1169,
+   "connectionArrows": true,
+   "connectionPoints": true,
+   "guidesEnabled": true,
+   "pageScale": 1,
+   "tooltipsEnabled": true
+  },
+  "layers": [
+   {
+    "id": "layer-0",
+    "name": "Background",
+    "visible": true,
+    "locked": false
+   }
+  ],
+  "items": [
+   {
+    "id": "a",
+    "type": "node",
+    "kind": "shape",
+    "shape": "rect",
+    "x": 100,
+    "y": 100,
+    "width": 120,
+    "height": 60,
+    "rotation": 0,
+    "fill": "#ffffff",
+    "stroke": "#4a5564",
+    "strokeWidth": 1.5,
+    "radius": 5,
+    "text": "A",
+    "textColor": "#172033",
+    "fontSize": 14,
+    "z": 1,
+    "visible": true,
+    "layer": "layer-0"
+   },
+   {
+    "id": "b",
+    "type": "node",
+    "kind": "shape",
+    "shape": "ellipse",
+    "x": 420,
+    "y": 260,
+    "width": 120,
+    "height": 60,
+    "rotation": 0,
+    "fill": "#ffffff",
+    "stroke": "#4a5564",
+    "strokeWidth": 1.5,
+    "radius": 5,
+    "text": "B",
+    "textColor": "#172033",
+    "fontSize": 14,
+    "z": 2,
+    "visible": true,
+    "layer": "layer-0"
+   },
+   {
+    "id": "edge-loyw3v28-3",
+    "type": "edge",
+    "sourceId": "a",
+    "targetId": "b",
+    "sourceSide": "east",
+    "targetSide": "north",
+    "sourceAnchor": {
+     "x": 1,
+     "y": 0.5,
+     "side": "east"
+    },
+    "targetAnchor": {
+     "x": 0.5,
+     "y": 0,
+     "side": "north"
+    },
+    "route": null,
+    "stroke": "#000000",
+    "strokeWidth": 1,
+    "lineStyle": "orthogonal",
+    "startArrow": "none",
+    "endArrow": "classic",
+    "rounded": false,
+    "fontFamily": "Helvetica, Arial, sans-serif",
+    "fontSize": 11,
+    "z": 3,
+    "visible": true
+   }
+  ]
+ },
+ "selection": [
+  "b"
+ ]
+}

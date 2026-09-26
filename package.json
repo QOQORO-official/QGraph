@@ -1,0 +1,13 @@
+{
+  "name": "qgraph",
+  "private": true,
+  "description": "Canvas diagram editor whose scene engine and painter are Nim compiled to WebAssembly.",
+  "scripts": {
+    "build": "bash tools/build.sh",
+    "serve": "python3 -m http.server 8123",
+    "test": "node tests/ui/golden.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.47.0"
+  }
+}

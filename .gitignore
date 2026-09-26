@@ -2,3 +2,5 @@ build/.cache/
 build/.nimcache/
 ref/
 node_modules/
+tests/ui/golden/*.actual.json
+_site/

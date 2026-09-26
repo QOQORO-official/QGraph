@@ -1,0 +1,90 @@
+{
+ "document": {
+  "format": "pixel-graph-v2",
+  "viewport": {
+   "zoom": 1
+  },
+  "diagram": {
+   "gridEnabled": true,
+   "gridSize": 10,
+   "gridColor": "#dfe4ea",
+   "backgroundColor": "#ffffff",
+   "pageView": false,
+   "pageWidth": 827,
+   "pageHeight": 1169,
+   "connectionArrows": true,
+   "connectionPoints": true,
+   "guidesEnabled": true,
+   "pageScale": 1,
+   "tooltipsEnabled": true
+  },
+  "layers": [
+   {
+    "id": "layer-0",
+    "name": "Background",
+    "visible": true,
+    "locked": false
+   }
+  ],
+  "items": [
+   {
+    "id": "node-loyw3v28-1",
+    "type": "node",
+    "kind": "shape",
+    "shape": "table",
+    "x": 100,
+    "y": 100,
+    "width": 260,
+    "height": 150,
+    "rotation": 0,
+    "fill": "#ffffff",
+    "stroke": "#4a5564",
+    "strokeWidth": 1.5,
+    "radius": 0,
+    "text": "",
+    "textColor": "#172033",
+    "fontSize": 12,
+    "z": 1,
+    "visible": true,
+    "rows": 4,
+    "columns": 3,
+    "headerRow": true,
+    "headerFill": "#eef1f6",
+    "cellAlign": "center",
+    "cells": {
+     "0,0": {
+      "text": "Item"
+     },
+     "0,1": {
+      "text": "Owner"
+     },
+     "0,2": {
+      "text": "Due"
+     },
+     "1,0": {
+      "text": "Draft"
+     },
+     "1,1": {
+      "text": "Ana"
+     },
+     "1,2": {
+      "text": "Mon"
+     },
+     "2,0": {
+      "text": "Review"
+     },
+     "2,1": {
+      "text": "Sam"
+     },
+     "2,2": {
+      "text": "Wed"
+     }
+    },
+    "layer": "layer-0"
+   }
+  ]
+ },
+ "selection": [
+  "node-loyw3v28-1"
+ ]
+}

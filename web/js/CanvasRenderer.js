@@ -1,11 +1,14 @@
 /*
- * ImageBitmap presentation layer for the pixel-native graph engine.
- * Rasterization happens in renderer-worker.js; this file presents frames with
- * WebGPU, WebGL2/WebGL, or Canvas2D without adding per-object DOM nodes.
+ * Frame presentation for the QGraph engine.
+ *
+ * The scene is painted by the Nim engine (qgraph.wasm): in a render worker
+ * that holds its own copy of the scene, or on the main thread while a gesture
+ * is running (the realtime painter shares the editor's scene inside the
+ * engine, so it needs no copy at all). Finished frames are presented with
+ * WebGPU, WebGL2/WebGL or Canvas2D without adding per-object DOM nodes.
  */
 (function(root) {
     'use strict';
-
     function requestedBackend() {
         var match = /(?:\?|&)renderer=([^&]+)/i.exec(location.search);
         var value = match ? decodeURIComponent(match[1]).toLowerCase() : 'auto';
@@ -247,10 +250,15 @@
         });
     }
 
+
+    /* options.painterHandle: the engine painter that shares the editor's
+       scene. options.itemsJson(ids?) returns scene JSON for the worker. */
     function CanvasRenderer(canvas, options) {
         options = options || {};
         this.canvas = canvas;
         this.onStats = options.onStats || function() {};
+        this.itemsJson = options.itemsJson || function() { return '[]'; };
+        this.painterHandle = options.painterHandle;
         this.presenter = null;
         this.frameId = 0;
         this.inFlight = false;
@@ -261,12 +269,12 @@
         this.workerMode = false;
         this.fallbackPainter = null;
         this.fallbackCanvas = null;
-        this.realtimePainter = new PixelScenePainter();
+        this.realtimePainter = new PixelScenePainter(this.painterHandle);
         this.realtimeCanvas = document.createElement('canvas');
         this.realtimeActive = false;
         this.realtimeFrame = null;
         this.interactiveDpr = 1.25;
-        this.pendingWorkerUpserts = new Map();
+        this.pendingWorkerUpserts = new Set();
         this.parallaxTarget = { x: 0, y: 0 };
         this.parallaxAnimating = false;
         this.presenterPromise = createPresenter(canvas).then(function(presenter) {
@@ -276,11 +284,12 @@
 
         if (typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined') {
             try {
-                this.worker = new Worker(options.workerUrl || 'js/renderer-worker.js');
+                this.worker = new Worker((options.workerUrl || 'js/renderer-worker.js') +
+                    ((root.QGraphWasm && root.QGraphWasm.versionQuery) || ''));
                 this.workerMode = true;
                 this.worker.onmessage = this.onWorkerMessage.bind(this);
                 this.worker.onerror = this.useFallback.bind(this);
-                this.worker.postMessage({ type: 'init' });
+                this.worker.postMessage({ type: 'init', wasmUrl: root.QGraphWasm.wasmUrl });
             } catch (error) {
                 this.useFallback(error);
             }
@@ -294,14 +303,18 @@
         this.worker = null;
         this.workerMode = false;
         this.ready = true;
-        this.fallbackPainter = this.fallbackPainter || new PixelScenePainter();
+        // The fallback shares the engine scene too; it only keeps its own
+        // (settled) parallax state and media decoders.
+        this.fallbackPainter = this.fallbackPainter || new PixelScenePainter(this.painterHandle);
+        this.fallbackPainter.playback = this.realtimePainter.playback;
+        this.fallbackPainter.mediaPlayback = this.realtimePainter.mediaPlayback;
+        this.fallbackPainter.onImageLoad = this.realtimePainter.onImageLoad;
         this.fallbackCanvas = this.fallbackCanvas || document.createElement('canvas');
         if (typeof this.fallbackPainter.setParallaxTarget === 'function') {
             this.fallbackPainter.setParallaxTarget(this.parallaxTarget.x, this.parallaxTarget.y);
             this.fallbackPainter.parallax.x = this.parallaxTarget.x;
             this.fallbackPainter.parallax.y = this.parallaxTarget.y;
         }
-        if (this.latestItems) this.fallbackPainter.sync(this.latestItems);
         if (this.latestView) this.requestFrame(this.latestView);
     };
 
@@ -312,9 +325,15 @@
             if (this.pendingStencils) {
                 this.worker.postMessage({ type: 'stencils', shapes: this.pendingStencils });
             }
-            if (this.latestItems) this.worker.postMessage({ type: 'sync', items: this.latestItems });
+            this.pendingWorkerUpserts.clear();
+            this.worker.postMessage({ type: 'sync', json: this.itemsJson() });
             this.worker.postMessage({ type: 'parallax', x: this.parallaxTarget.x, y: this.parallaxTarget.y });
             if (this.latestView) this.requestFrame(this.latestView);
+            return;
+        }
+
+        if (message.type === 'failed') {
+            this.useFallback();
             return;
         }
 
@@ -387,72 +406,48 @@
         }
     };
 
-    CanvasRenderer.prototype.sync = function(items) {
-        this.latestItems = items;
+    /* The engine replaced its whole scene (load, undo). `media` lists the
+       items that carry pictures or video. */
+    CanvasRenderer.prototype.sync = function(media) {
         this.pendingWorkerUpserts.clear();
-        this.realtimePainter.sync(items);
+        this.realtimePainter.refreshLayered();
         if (this.realtimePainter.mediaPlayback &&
             typeof this.realtimePainter.mediaPlayback.retain === 'function') {
-            this.realtimePainter.mediaPlayback.retain(items);
+            this.realtimePainter.mediaPlayback.retain(media || []);
         }
         // Learn which sources animate without waiting for a main-thread draw;
         // in worker mode that draw may never come.
-        this.realtimePainter.scanForAnimation(items);
-        if (this.workerMode) {
-            if (this.ready) this.worker.postMessage({ type: 'sync', items: items });
-        } else if (this.fallbackPainter) {
-            this.fallbackPainter.sync(items);
+        this.realtimePainter.scanForAnimation(media || []);
+        if (this.workerMode && this.ready) {
+            this.worker.postMessage({ type: 'sync', json: this.itemsJson() });
         }
     };
 
-    CanvasRenderer.prototype.upsert = function(items, deferWorker) {
-        if (this.latestItems != null) {
-            for (var i = 0; i < items.length; i++) {
-                var found = false;
-                for (var j = 0; j < this.latestItems.length; j++) {
-                    if (this.latestItems[j].id === items[i].id) {
-                        this.latestItems[j] = items[i];
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) this.latestItems.push(items[i]);
-            }
-        }
-
-        this.realtimePainter.upsert(items);
-        this.realtimePainter.scanForAnimation(items);
+    /* Items changed inside the engine (already visible to the realtime and
+       fallback painters, which share the scene). */
+    CanvasRenderer.prototype.upsert = function(ids, deferWorker, media) {
+        this.realtimePainter.refreshLayered();
+        if (media && media.length) this.realtimePainter.scanForAnimation(media);
 
         if (this.workerMode) {
             if (deferWorker === true || this.realtimeActive) {
-                for (var k = 0; k < items.length; k++) {
-                    this.pendingWorkerUpserts.set(items[k].id, items[k]);
-                }
+                for (var k = 0; k < ids.length; k++) this.pendingWorkerUpserts.add(ids[k]);
             } else if (this.ready) {
-                this.worker.postMessage({ type: 'upsert', items: items });
+                this.worker.postMessage({ type: 'upsert', json: this.itemsJson(ids) });
             }
-        } else if (this.fallbackPainter) {
-            this.fallbackPainter.upsert(items);
         }
     };
 
-    CanvasRenderer.prototype.remove = function(ids) {
-        if (this.latestItems != null) {
-            var removed = new Set(ids);
-            this.latestItems = this.latestItems.filter(function(item) { return !removed.has(item.id); });
-        }
-
-        this.realtimePainter.remove(ids);
+    CanvasRenderer.prototype.remove = function(ids, media) {
+        this.realtimePainter.refreshLayered();
         if (this.realtimePainter.mediaPlayback &&
             typeof this.realtimePainter.mediaPlayback.retain === 'function') {
-            this.realtimePainter.mediaPlayback.retain(this.latestItems || []);
+            this.realtimePainter.mediaPlayback.retain(media || []);
         }
         for (var p = 0; p < ids.length; p++) this.pendingWorkerUpserts.delete(ids[p]);
 
-        if (this.workerMode) {
-            if (this.ready) this.worker.postMessage({ type: 'remove', ids: ids });
-        } else if (this.fallbackPainter) {
-            this.fallbackPainter.remove(ids);
+        if (this.workerMode && this.ready) {
+            this.worker.postMessage({ type: 'remove', ids: ids });
         }
     };
 
@@ -495,9 +490,9 @@
 
     CanvasRenderer.prototype.flushWorkerUpserts = function() {
         if (!this.workerMode || !this.ready || this.pendingWorkerUpserts.size === 0) return;
-        var items = Array.from(this.pendingWorkerUpserts.values());
+        var ids = Array.from(this.pendingWorkerUpserts);
         this.pendingWorkerUpserts.clear();
-        this.worker.postMessage({ type: 'upsert', items: items });
+        this.worker.postMessage({ type: 'upsert', json: this.itemsJson(ids) });
     };
 
     CanvasRenderer.prototype.requestRealtimeFrame = function() {

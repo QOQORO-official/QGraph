@@ -296,10 +296,23 @@
 
     var base = scriptBase();
 
+    /* The deployed build stamps ?v=<version> onto the page's script URLs (and
+       the render worker's URL); the same query is carried to qgraph.wasm so a
+       cached engine never pairs with newer scripts. */
+    function versionQuery() {
+        var src = (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) ||
+            (typeof location !== 'undefined' ? String(location.href) : '');
+        var match = /[?&]v=([A-Za-z0-9._-]+)/.exec(src);
+        return match ? '?v=' + match[1] : '';
+    }
+
+    var version = versionQuery();
+
     var QGraphWasm = {
         OP: OP,
         Engine: Engine,
-        wasmUrl: base + 'qgraph.wasm',
+        wasmUrl: base + 'qgraph.wasm' + version,
+        versionQuery: version,
         engine: null,
         /* Loads (once) the shared engine for this realm. */
         load: function(url) {

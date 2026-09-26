@@ -433,7 +433,7 @@
         this.contextMenuBaseEntries = [
             'delete', '-', 'cut', 'copy', '-', 'duplicate', 'setBookmark', '-',
             'setDefaultStyle', '-', 'toFront', 'toBack', '-',
-            'editStyle', 'editData', 'editLink', 'editCScript', 'editImage'
+            'editStyle', 'editData', 'editLink', 'editImage'
         ];
     };
 
@@ -846,7 +846,6 @@
         fields.editImageButton.style.marginLeft = '2px';
         fields.editImageButton.hidden = true;
 
-        this.formatButton(styleActions, 'Edit CScript…', function() { this.actions.run('editCScript'); }.bind(this));
         this.formatButton(styleActions, 'Set as Default Style', function() { this.actions.run('setDefaultStyle'); }.bind(this));
 
         /* Text ---------------------------------------------------------- */
@@ -995,8 +994,6 @@
         graph.on('diagramchange', this.updateFormat.bind(this));
         graph.on('toast', this.toast.bind(this));
         graph.on('contextmenu', this.showContextMenu.bind(this));
-        // Ctrl+V with an empty internal clipboard tries the system one.
-        graph.on('externalpaste', function() { this.pasteOfficeShapes(true); }.bind(this));
 
         this.fileInput.addEventListener('change', function() {
             if (this.fileInput.files[0]) this.editor.openFile(this.fileInput.files[0]);
@@ -1020,7 +1017,6 @@
             if (key === 'l') { this.actions.run('lock'); event.preventDefault(); }
             if (event.shiftKey && key === 'c') { this.actions.run('copyStyle'); event.preventDefault(); }
             if (event.shiftKey && key === 'v') { this.actions.run('pasteStyle'); event.preventDefault(); }
-            if (event.altKey && key === 'v') { this.actions.run('pasteOfficeShapes'); event.preventDefault(); }
         }.bind(this));
 
         window.addEventListener('resize', this.refresh.bind(this, true));
@@ -1391,19 +1387,17 @@
         this.outlineMapping = { x: originX, y: originY, scale: scale };
 
         if (this.outlinePainter == null) this.outlinePainter = new root.PixelScenePainter();
-        this.outlinePainter.sync(graph.items);
+        var items = graph.items;
+        this.outlinePainter.sync(items);
         ctx.save();
         ctx.scale(scale, scale);
         ctx.translate(-originX, -originY);
         var hidden = graph.hiddenLayerIds();
 
-        for (var i = 0; i < graph.items.length; i++) {
-            var item = graph.items[i];
-            if (item.visible === false || item.foldedAway) continue;
-            if (item.layer != null && hidden.indexOf(item.layer) >= 0) continue;
-            if (item.type === 'edge') this.outlinePainter.drawEdge(ctx, item);
-            else this.outlinePainter.drawNode(ctx, item);
-        }
+        this.outlinePainter.drawItems(ctx, items.filter(function(item) {
+            if (item.visible === false || item.foldedAway) return false;
+            return !(item.layer != null && hidden.indexOf(item.layer) >= 0);
+        }));
 
         ctx.restore();
 
@@ -2117,9 +2111,7 @@
             }
             var scale = node.width / natural.width;
             node.height = Math.max(1, Math.round(natural.height * scale));
-            graph.reindexNodeAndEdges(node);
-            graph.renderer.upsert([node]);
-            graph.render();
+            graph.updateItem(node.id, { height: node.height });
             ui.toast('Height set to ' + node.height + ' px');
         });
 
@@ -2127,19 +2119,15 @@
         remove.className = 'geBtn';
         remove.textContent = 'Remove Media';
         remove.addEventListener('click', function() {
-            var before = graph.snapshot();
-            delete node.src;
-            delete node.mediaType;
-            delete node.mediaLoop;
-            delete node.mediaVolume;
-            delete node.mediaLayers;
-            if (node.shape === 'image') node.shape = 'rect';
-            graph.renderer.upsert([node]);
+            var changes = {
+                src: undefined, mediaType: undefined, mediaLoop: undefined,
+                mediaVolume: undefined, mediaLayers: undefined
+            };
+            if (node.shape === 'image') changes.shape = 'rect';
+            graph.updateItem(node.id, changes, 'Remove Media', true);
             if (graph.mediaPlayback && typeof graph.mediaPlayback.retain === 'function') {
                 graph.mediaPlayback.retain(graph.items);
             }
-            graph.commit(before, 'Remove Media');
-            graph.render();
             close();
             ui.toast('Media removed');
         });
@@ -2162,27 +2150,25 @@
                     ui.toast('Parallax layers need an image, GIF, MP4 or WebM base — not YouTube');
                     return;
                 }
-                var before = graph.snapshot();
-                node.shape = 'image';
-                node.src = draft.src;
-                node.mediaType = sourceType(draft.src, draft.mediaType);
-                node.mediaLoop = draft.mediaLoop;
-                node.mediaVolume = draft.mediaVolume;
-                node.imageFit = draft.imageFit;
-                node.imageAlign = draft.imageAlign;
-                node.imageVerticalAlign = draft.imageVerticalAlign;
-                node.imageOpacity = draft.imageOpacity;
-                node.tooltip = draft.tooltip;
                 var layers = persistentLayers();
-                if (layers.length) node.mediaLayers = layers;
-                else delete node.mediaLayers;
-                if (node.fill == null || node.fill === '#ffffff') node.fill = 'transparent';
-                graph.renderer.upsert([node]);
+                var changes = {
+                    shape: 'image',
+                    src: draft.src,
+                    mediaType: sourceType(draft.src, draft.mediaType),
+                    mediaLoop: draft.mediaLoop,
+                    mediaVolume: draft.mediaVolume,
+                    imageFit: draft.imageFit,
+                    imageAlign: draft.imageAlign,
+                    imageVerticalAlign: draft.imageVerticalAlign,
+                    imageOpacity: draft.imageOpacity,
+                    tooltip: draft.tooltip,
+                    mediaLayers: layers.length ? layers : undefined
+                };
+                if (node.fill == null || node.fill === '#ffffff') changes.fill = 'transparent';
+                graph.updateItem(node.id, changes, 'Edit Media', true);
                 if (graph.mediaPlayback && typeof graph.mediaPlayback.retain === 'function') {
                     graph.mediaPlayback.retain(graph.items);
                 }
-                graph.commit(before, 'Edit Media');
-                graph.render();
                 graph.emit('selectionchange', graph.getSelection());
                 close();
                 ui.toast(layers.length ? 'Media + ' + layers.length + ' parallax layer(s) updated' : 'Media updated');
@@ -2366,12 +2352,10 @@
                 });
                 this.editor.addTemplateAtCenter(template);
             } else {
-                node.html = area.value;
-                node.richText = model;
-                node.text = root.PixelRichText.toPlain(model);
-                graph.renderer.upsert([node]);
-                graph.commit(before, 'Edit HTML');
-                graph.render();
+                graph.updateItem(node.id, {
+                    html: area.value, richText: model,
+                    text: root.PixelRichText.toPlain(model)
+                }, 'Edit HTML', true);
             }
 
             backdrop.remove();
@@ -2389,124 +2373,6 @@
         document.body.appendChild(backdrop);
         area.focus();
         refresh();
-    };
-
-    /* ------------------------------------------------------------------ */
-    /* Pasting shapes copied from PowerPoint                               */
-    /* ------------------------------------------------------------------ */
-
-    /* Origin of the Flask server backing this editor. ServerBridge.baseUrl
-       reads only globals, so it is borrowed rather than instantiated. */
-    EditorUi.prototype.serverBaseUrl = function() {
-        try {
-            if (typeof root.ServerBridge === 'function') {
-                return root.ServerBridge.prototype.baseUrl.call(this) || '';
-            }
-        } catch (error) { /* fall through to this page's own origin */ }
-        try { return window.location.origin || ''; } catch (error) { return ''; }
-    };
-
-    /* PowerPoint stores a crop as insets on the source image and then stretches
-       what is left over the shape's frame. The canvas model has no crop, so the
-       visible region is rendered into a new image here and that becomes the
-       node's source. Resolves once every cropped image has been rebuilt;
-       an image that fails to load keeps its uncropped source rather than
-       blocking the paste. */
-    EditorUi.prototype.cropImportedImages = function(items, crops) {
-        var pending = (items || []).filter(function(item) {
-            return crops && crops[item.id] && item.src;
-        });
-        if (pending.length === 0) return Promise.resolve(items);
-
-        return Promise.all(pending.map(function(item) {
-            return new Promise(function(resolve) {
-                var inset = crops[item.id];
-                var image = new Image();
-                image.onload = function() {
-                    var width = image.naturalWidth || image.width;
-                    var height = image.naturalHeight || image.height;
-                    var sx = Math.round(width * inset.left);
-                    var sy = Math.round(height * inset.top);
-                    var sw = Math.round(width * (1 - inset.left - inset.right));
-                    var sh = Math.round(height * (1 - inset.top - inset.bottom));
-
-                    if (sw > 0 && sh > 0) {
-                        try {
-                            var canvas = document.createElement('canvas');
-                            canvas.width = sw;
-                            canvas.height = sh;
-                            canvas.getContext('2d').drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
-                            item.src = canvas.toDataURL('image/png');
-                        } catch (error) { /* keep the uncropped source */ }
-                    }
-                    resolve();
-                };
-                image.onerror = function() { resolve(); };
-                image.src = item.src;
-            });
-        })).then(function() { return items; });
-    };
-
-    /* Asks the server what Office has on the clipboard and turns it into
-     * diagram objects.
-     *
-     * The vector data lives in a registered clipboard format that browsers do
-     * not hand to page scripts, so it has to come from the Flask process --
-     * which only sees the right clipboard when it runs on the same machine as
-     * PowerPoint. `silent` is used by the Ctrl+V fallback, where finding
-     * nothing is an ordinary outcome rather than something to report.
-     */
-    EditorUi.prototype.pasteOfficeShapes = function(silent) {
-        var ui = this;
-        var converter = root.PptxMxGraphConverter;
-
-        if (converter == null) {
-            if (!silent) this.toast('The Office converter is not loaded');
-            return Promise.resolve(false);
-        }
-
-        return fetch(this.serverBaseUrl() + '/api/office-clipboard', {
-            credentials: 'include', cache: 'no-store'
-        }).then(function(response) {
-            if (!response.ok && response.status !== 501 && response.status !== 503) {
-                throw new Error('The server returned ' + response.status);
-            }
-            return response.json();
-        }).then(function(payload) {
-            if (!payload.ok) throw new Error(payload.error || 'The clipboard could not be read.');
-
-            if (!payload.hasShapes) {
-                // PowerPoint publishes a picture of the selection too. It is
-                // the only thing left when the copy was not shapes at all.
-                if (payload.png) {
-                    ui.editor.graph.insertImage(payload.png, 'Pasted from Office');
-                    ui.toast('Pasted a picture; the copied content had no shape data');
-                    return true;
-                }
-                if (!silent) ui.toast('No Office shapes are on the clipboard');
-                return false;
-            }
-
-            var result = converter.convert(payload.drawing, {
-                theme: payload.theme, media: payload.media
-            });
-
-            return ui.cropImportedImages(result.items, result.crops).then(function(items) {
-                var created = ui.insertImportedItems(items, {
-                    idPrefix: 'pptx-import', label: 'Paste from PowerPoint'
-                });
-                ui.toast('Pasted ' + created.length + ' object' +
-                    (created.length === 1 ? '' : 's') + ' from PowerPoint' +
-                    (result.warnings.length ? ' (' + result.warnings.length + ' approximated)' : ''));
-                if (result.warnings.length) {
-                    console.warn('PowerPoint paste:\n• ' + result.warnings.join('\n• '));
-                }
-                return true;
-            });
-        }).catch(function(error) {
-            if (!silent) ui.toast('Could not paste from PowerPoint: ' + error.message);
-            return false;
-        });
     };
 
     /* Drops a set of freshly imported items into the diagram, centred on the
@@ -2769,14 +2635,7 @@
             var parsed = JSON.parse(text);
             parsed.id = item.id;
             parsed.type = item.type;
-            var before = graph.snapshot();
-            Object.keys(item).forEach(function(key) { delete item[key]; });
-            Object.assign(item, parsed);
-            graph.rebuildIndex();
-            graph.renderer.sync(graph.items);
-            graph.commit(before, 'Edit Data');
-            graph.render();
-            graph.emit('selectionchange', graph.getSelection());
+            graph.call('replaceItem', [item.id, parsed, 'Edit Data']);
         } catch (error) { this.toast('Invalid JSON: ' + error.message); }
     };
 

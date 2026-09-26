@@ -350,6 +350,9 @@ proc setFillGradient*(c: Ctx, g: Gradient) =
 
 # ---------------------------------------------------------------- media --
 
+var currentCmd*: ptr seq[float64]
+  ## The command list the page should replay next (qg_cmd_ptr/qg_cmd_len).
+
 proc media*(c: Ctx, nodeJson: string) =
   ## Hands an image/video node to the page's media painter (drawImageNode).
   c.op(OpMedia, float64(strId(nodeJson)))

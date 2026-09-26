@@ -1,6 +1,6 @@
 // Renders the parity scene with the original JS painter and the Nim painter
 // and reports per-view pixel differences. Usage: node tests/parity/run.js [outdir]
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require('../ui/pw');
 const fs = require('fs');
 const path = require('path');
 (async () => {

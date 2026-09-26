@@ -28,42 +28,11 @@
         var editor = ui.editor;
         this.add('new', 'New…', function() { editor.newDocument(); }, 'Ctrl+N');
 
-        // Ctrl+O and Ctrl+S prefer the server whenever the bridge is present,
-        // so a diagram opened from the host round-trips without the picker.
-        this.add('open', 'Open Diagram…', function() {
-            if (ui.serverBridge) ui.serverBridge.showOpenDialog();
-            else ui.fileInput.click();
-        }, 'Ctrl+O');
+        this.add('open', 'Open Diagram…', function() { ui.fileInput.click(); }, 'Ctrl+O');
         this.add('openFile', 'Open Local File…', function() { ui.fileInput.click(); });
-        this.add('save', 'Save', function() {
-            if (ui.serverBridge && ui.serverBridge.path) {
-                ui.serverBridge.save().catch(function() { /* reported by the bridge */ });
-            } else if (ui.serverBridge) {
-                ui.serverBridge.saveAs().catch(function() { /* reported by the bridge */ });
-            } else {
-                graph.saveLocal();
-            }
-        }, 'Ctrl+S');
-        this.add('saveToServer', 'Save to Server As…', function() {
-            if (ui.serverBridge) ui.serverBridge.saveAs().catch(function() {});
-            else ui.toast('The server bridge is not available');
-        });
+        this.add('save', 'Save', function() { graph.saveLocal(); }, 'Ctrl+S');
         this.add('saveBrowser', 'Save in Browser', function() { graph.saveLocal(); });
         this.add('load', 'Load from Browser', function() { graph.loadLocal(); });
-        this.add('reload', 'Reload from Server', function() {
-            if (ui.serverBridge && ui.serverBridge.path) {
-                ui.serverBridge.open(ui.serverBridge.path, undefined, ui.serverBridge.qnoteContext).catch(function(error) {
-                    ui.toast('Reload failed: ' + error.message);
-                });
-            } else {
-                ui.toast('No server file is open');
-            }
-        });
-        this.add('downloadQochart', 'Download .qochart', function() {
-            if (!ui.serverBridge) { ui.toast('The .qochart writer is not available'); return; }
-            editor.downloadText(ui.serverBridge.toQochart(),
-                (ui.serverBridge.path || 'diagram.qochart').split('/').pop(), 'application/xml');
-        });
         this.add('download', 'Download JSON', function() { editor.download(); });
         this.add('exportPng', 'Export PNG', function() { graph.exportPng(); });
         this.add('export', 'Export…', function() { graph.exportPng(); });
@@ -80,10 +49,7 @@
             graph.copy();
             ui.writeSelectionToSystemClipboard();
         }, 'Ctrl+C');
-        this.add('paste', 'Paste', function() { ui.pasteInternalOrOffice(); }, 'Ctrl+V');
-        this.add('pasteOfficeShapes', 'Paste from PowerPoint', function() {
-            ui.pasteOfficeShapes();
-        }, 'Ctrl+Alt+V');
+        this.add('paste', 'Paste', function() { graph.paste(); }, 'Ctrl+V');
         this.add('duplicate', 'Duplicate', function() { graph.duplicate(); }, 'Ctrl+D');
         this.add('delete', 'Delete', function() { graph.removeSelection(); }, 'Delete');
         this.add('selectAll', 'Select All', function() { graph.selectByType(null); }, 'Ctrl+A');
@@ -138,10 +104,6 @@
                 function(item) { return item.type !== 'edge'; });
         });
         this.add('saveAs', 'Save As…', function() {
-            if (ui.serverBridge) {
-                ui.serverBridge.saveAs().catch(function() { /* reported by the bridge */ });
-                return;
-            }
             var name = prompt('File name', editor.filename);
             if (name == null) return;
             editor.filename = /\.json$/i.test(name) ? name : name + '.json';
@@ -158,19 +120,6 @@
         this.add('svgToMxGraph', 'SVG to mxGraph…', function() { ui.showSvgToMxGraphDialog(); });
         // Keep the historic action ids so old menus/shortcuts still resolve.
         this.add('editImage', 'Edit Media…', function() { ui.editMedia(); }, 'Alt+Shift+I');
-        this.add('editCScript', 'Edit CScript…', function() {
-            if (ui.cscript) ui.cscript.showDialog();
-            else ui.toast('CScript is not available');
-        }, 'Alt+Shift+C');
-        this.add('runCScript', 'Run CScript', function() {
-            var item = graph.getSelection()[0];
-            if (!ui.cscript || item == null) { ui.toast('Select a scripted shape'); return; }
-            if (!ui.cscript.run(item)) ui.toast('This shape has no CScript');
-        });
-        this.add('cscriptRunMode', 'CScript Run Mode', function() {
-            if (ui.cscript) ui.cscript.setRunMode();
-            else ui.toast('CScript is not available');
-        });
         this.add('layers', 'Layers…', function() { ui.showLayers(); }, 'Ctrl+Shift+L');
         this.add('outline', 'Outline', function() { ui.toggleOutline(); });
         this.add('image', 'Insert Media…', function() { ui.insertMedia(); });

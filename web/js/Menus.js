@@ -9,7 +9,7 @@
             // commands stay available elsewhere instead of flooding File.
             File: ['new', 'open', '-', 'save', 'saveAs', '-',
                 'export', '-', 'pageSetup', 'print'],
-            Edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pasteOfficeShapes', 'delete', '-',
+            Edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'delete', '-',
                 'duplicate', '-', 'editData', 'editTooltip', '-', 'editStyle', '-',
                 'edit', '-', 'editLink', 'openLink', '-',
                 'selectVertices', 'selectEdges', 'selectAll', 'selectNone', '-', 'lock'],
@@ -22,7 +22,7 @@
                 'enterGroup', 'exitGroup', 'collapseExpand', '-', 'lock', 'autosize', '-',
                 'alignLeft', 'alignCenter', 'alignRight', 'alignTop', 'alignMiddle', 'alignBottom', '-',
                 'distributeHorizontal', 'distributeVertical', '-', 'rotate90', 'flipHorizontal', 'flipVertical'],
-            Extras: ['svgToMxGraph', '-', 'editCScript', 'runCScript', 'cscriptRunMode', '-',
+            Extras: ['svgToMxGraph', '-',
                 'portMode', 'addWaypoint', 'resetWaypoints', 'reverseConnector', '-',
                 'solid', 'dashed', 'dotted', 'rounded', 'shadow', '-',
                 'setDefaultStyle', 'clearDefaultStyle'],

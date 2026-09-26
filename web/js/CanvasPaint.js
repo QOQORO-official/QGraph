@@ -687,6 +687,17 @@
         this.refreshLayered();
     };
 
+    /* Scene JSON straight from another engine (the render worker). */
+    ScenePainter.prototype.syncJson = function(json) {
+        this.engine.call('qg_painter_sync', [this.handle], json);
+        this.refreshLayered();
+    };
+
+    ScenePainter.prototype.upsertJson = function(json) {
+        this.engine.call('qg_painter_upsert', [this.handle], json);
+        this.refreshLayered();
+    };
+
     ScenePainter.prototype.remove = function(ids) {
         this.engine.callJson('qg_painter_remove', [this.handle], ids || []);
         this.refreshLayered();
@@ -718,6 +729,15 @@
         engine.replay(ctx, this.drawMedia);
         return result;
     };
+
+    /* Draws items in order under the context's current transform. */
+    ScenePainter.prototype.drawItems = function(ctx, items) {
+        this.engine.call('qg_painter_draw', [this.handle], JSON.stringify(items || []));
+        this.engine.replay(ctx, this.drawMedia);
+    };
+
+    ScenePainter.prototype.drawNode = function(ctx, node) { this.drawItems(ctx, [node]); };
+    ScenePainter.prototype.drawEdge = function(ctx, edge) { this.drawItems(ctx, [edge]); };
 
     ScenePainter.prototype.destroy = function() {
         if (this.owned) this.engine.exports.qg_painter_free(this.handle);

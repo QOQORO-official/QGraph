@@ -325,7 +325,7 @@
             if (typeof data.info === 'number') {
                 var state = Number(data.info);
                 record.playing = state === 1;
-                var item = this.graph && this.graph.byId[record.id];
+                var item = this.graph && this.graph.getItem(record.id);
                 if (state === 0 && item && item.mediaLoop !== false) {
                     this.postYouTube(record, 'seekTo', [0, true]);
                     this.postYouTube(record, 'playVideo');
@@ -459,8 +459,9 @@
                 record.video.volume = value / 100;
             }
             record.volumeIcon.textContent = value === 0 ? '🔇' : (value < 50 ? '🔉' : '🔊');
-            var item = self.graph && self.graph.byId[record.id];
-            if (item) item.mediaVolume = value / 100;
+            if (self.graph && self.graph.updateItem) {
+                self.graph.updateItem(record.id, { mediaVolume: value / 100 });
+            }
             record.nodeVolume = value / 100;
         });
         record.volume.addEventListener('pointerdown', function() {

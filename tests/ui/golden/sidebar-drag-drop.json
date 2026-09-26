@@ -1,0 +1,73 @@
+{
+ "document": {
+  "format": "pixel-graph-v2",
+  "viewport": {
+   "zoom": 1
+  },
+  "diagram": {
+   "gridEnabled": true,
+   "gridSize": 10,
+   "gridColor": "#dfe4ea",
+   "backgroundColor": "#ffffff",
+   "pageView": false,
+   "pageWidth": 827,
+   "pageHeight": 1169,
+   "connectionArrows": true,
+   "connectionPoints": true,
+   "guidesEnabled": true,
+   "pageScale": 1,
+   "tooltipsEnabled": true
+  },
+  "layers": [
+   {
+    "id": "layer-0",
+    "name": "Background",
+    "visible": true,
+    "locked": false
+   }
+  ],
+  "items": [
+   {
+    "id": "node-loyw3v28-1",
+    "type": "node",
+    "kind": "shape",
+    "shape": "ellipse",
+    "x": 440,
+    "y": 360,
+    "width": 120,
+    "height": 80,
+    "rotation": 0,
+    "fill": "#ffffff",
+    "stroke": "#4a5564",
+    "strokeWidth": 1,
+    "radius": 0,
+    "text": "",
+    "textColor": "#172033",
+    "fontSize": 11,
+    "z": 1,
+    "visible": true,
+    "fontFamily": "Arial, Helvetica, sans-serif",
+    "fontWeight": 400,
+    "textPadding": 2,
+    "textAlign": "center",
+    "verticalAlign": "middle",
+    "shadow": false,
+    "dashed": false,
+    "opacity": 1,
+    "locked": false,
+    "editable": true,
+    "movable": true,
+    "resizable": true,
+    "deletable": true,
+    "connectable": true,
+    "rotatable": true,
+    "dropTarget": true,
+    "part": false,
+    "layer": "layer-0"
+   }
+  ]
+ },
+ "selection": [
+  "node-loyw3v28-1"
+ ]
+}

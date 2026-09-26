@@ -40,16 +40,6 @@
             { id: 'bpmn', name: 'BPMN General', expanded: false, classic: 'bpmn', items: [] },
             { id: 'flowchart', name: 'Flowchart', expanded: false, stencilLibrary: 'mxgraph.flowchart', items: [] }
         ];
-
-        // The original extension used one "Script Nodes" palette in this tab.
-        // Its entries come from the shared Visual Script card descriptions,
-        // never from similarly named generic flowchart templates.
-        var visualItems = (root.PixelVisualScriptDefinitions || []).map(function(definition) {
-            return [definition.key, definition.label];
-        });
-        this.visualPalettes = [
-            { id: 'visualScript', name: 'Script Nodes', expanded: true, items: visualItems }
-        ];
     }
 
     /* Builds a diagram template from a classic mxGraph style string.
@@ -570,42 +560,20 @@
         var tabOriginal = document.createElement('div');
         tabOriginal.className = 'geSidebarTab active';
         tabOriginal.textContent = 'Original';
-        var tabVisual = document.createElement('div');
-        tabVisual.className = 'geSidebarTab';
-        tabVisual.textContent = 'Visual Script';
         tabs.appendChild(tabOriginal);
-        tabs.appendChild(tabVisual);
         container.appendChild(tabs);
 
+        // Only the original mxGraph inventory is ported; the Visual Script
+        // tab (programming nodes) is not part of this build.
         var panelOriginal = document.createElement('div');
         panelOriginal.className = 'geSidebarTabPanel active';
         panelOriginal.id = 'originalMxGraphObj';
-        var panelVisual = document.createElement('div');
-        panelVisual.className = 'geSidebarTabPanel';
-        panelVisual.id = 'visualScript';
         container.appendChild(panelOriginal);
-        container.appendChild(panelVisual);
 
         this.originalPanel = panelOriginal;
-        this.visualScriptPanel = panelVisual;
         this.buildPanel(panelOriginal, 'original', this.originalPalettes);
-        // In the classic extension Scratchpad and Search belonged to the
-        // original mxGraph inventory. The Visual Script tab started directly
-        // with its script cards.
-        this.visualPalettes.forEach(function(palette) {
-            this.addPalette(panelVisual, 'visual', palette);
-        }, this);
         this.renderScratchpad();
         this.addStencilPalettes();
-
-        function switchTab(showOriginal) {
-            tabOriginal.className = 'geSidebarTab' + (showOriginal ? ' active' : '');
-            tabVisual.className = 'geSidebarTab' + (!showOriginal ? ' active' : '');
-            panelOriginal.className = 'geSidebarTabPanel' + (showOriginal ? ' active' : '');
-            panelVisual.className = 'geSidebarTabPanel' + (!showOriginal ? ' active' : '');
-        }
-        tabOriginal.addEventListener('click', function() { switchTab(true); });
-        tabVisual.addEventListener('click', function() { switchTab(false); });
     };
 
     root.Sidebar = Sidebar;

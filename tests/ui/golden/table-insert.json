@@ -1,0 +1,32 @@
+{
+ "document": {
+  "format": "pixel-graph-v2",
+  "viewport": {
+   "zoom": 1
+  },
+  "diagram": {
+   "gridEnabled": true,
+   "gridSize": 10,
+   "gridColor": "#dfe4ea",
+   "backgroundColor": "#ffffff",
+   "pageView": false,
+   "pageWidth": 827,
+   "pageHeight": 1169,
+   "connectionArrows": true,
+   "connectionPoints": true,
+   "guidesEnabled": true,
+   "pageScale": 1,
+   "tooltipsEnabled": true
+  },
+  "layers": [
+   {
+    "id": "layer-0",
+    "name": "Background",
+    "visible": true,
+    "locked": false
+   }
+  ],
+  "items": []
+ },
+ "selection": []
+}

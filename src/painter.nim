@@ -1406,3 +1406,12 @@ proc render*(p: ScenePainter, view: Val): RenderStats =
   p.ctx.reset()
   result = p.renderInto(p.ctx, view)
   p.ctx.finish()
+
+proc drawList*(p: ScenePainter, items: openArray[Val]) =
+  ## Draws the given items, in order, under whatever transform the page has
+  ## set on its context (the outline view).
+  p.ctx.reset()
+  for item in items:
+    if item.eqs("type", "edge"): p.drawEdge(p.ctx, item)
+    else: p.drawNode(p.ctx, item)
+  p.ctx.finish()

@@ -1,0 +1,54 @@
+{
+ "document": {
+  "format": "pixel-graph-v2",
+  "viewport": {
+   "zoom": 1
+  },
+  "diagram": {
+   "gridEnabled": true,
+   "gridSize": 10,
+   "gridColor": "#dfe4ea",
+   "backgroundColor": "#ffffff",
+   "pageView": false,
+   "pageWidth": 827,
+   "pageHeight": 1169,
+   "connectionArrows": true,
+   "connectionPoints": true,
+   "guidesEnabled": true,
+   "pageScale": 1,
+   "tooltipsEnabled": true
+  },
+  "layers": [
+   {
+    "id": "layer-0",
+    "name": "Background",
+    "visible": true,
+    "locked": false
+   }
+  ],
+  "items": [
+   {
+    "id": "node-loyw3v28-1",
+    "type": "node",
+    "kind": "shape",
+    "shape": "rect",
+    "x": 388,
+    "y": 363.5,
+    "width": 160,
+    "height": 76,
+    "rotation": 0,
+    "fill": "#ffffff",
+    "stroke": "#4a5564",
+    "strokeWidth": 1.5,
+    "radius": 5,
+    "text": "Process",
+    "textColor": "#172033",
+    "fontSize": 14,
+    "z": 1,
+    "visible": true,
+    "layer": "layer-0"
+   }
+  ]
+ },
+ "selection": []
+}
