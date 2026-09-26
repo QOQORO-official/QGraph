@@ -1,0 +1,3146 @@
+/* ===========================================================
+   GraphEditor chrome (ported verbatim from the classic
+   grapheditor stylesheet: containers, toolbar, sidebar,
+   hsplit, footer, sprites).
+   =========================================================== */
+
+.geEditor {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    border: none;
+    margin: 0px;
+}
+
+.geEditor input[type=text]::-ms-clear {
+    display: none;
+}
+
+.geEditor input,
+select,
+textarea,
+button {
+    font-size: inherit;
+}
+
+.geEditor input {
+    border-width: 2px;
+}
+
+.geEditor select {
+    border-width: 1px;
+}
+
+.geEditor div.mxTooltip {
+    background: whiteSmoke;
+    border-color: lightGray;
+    font-size: 11px;
+    color: black;
+    padding: 6px;
+}
+
+.geMenubarContainer .geItem,
+.geToolbar .geButton,
+.geToolbar .geLabel {
+    cursor: pointer !important;
+}
+
+.geSidebarContainer .geTitle {
+    cursor: default !important;
+}
+
+.geBackgroundPage {
+    box-shadow: 0px 0px 2px 1px #d1d1d1;
+}
+
+.geSidebarContainer a,
+.geMenubarContainer a,
+.geToolbar a {
+    color: #000000;
+    text-decoration: none;
+}
+
+.geMenubarContainer,
+.geToolbarContainer,
+.geDiagramContainer,
+.geSidebarContainer,
+.geFooterContainer,
+.geHsplit,
+.geVsplit {
+    overflow: hidden;
+    position: absolute;
+    cursor: default;
+}
+
+.geFormatContainer {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    font-size: 12px;
+    border-left: 1px solid #dadce0;
+}
+
+.geSidebarFooter {
+    border-top: 1px solid #dadce0;
+}
+
+.geFormatSection {
+    border-bottom: 1px solid #dadce0;
+    border-color: #dadce0;
+}
+
+.geDiagramContainer {
+    background-color: #ffffff;
+    font-size: 0px;
+    outline: none;
+}
+
+.geMenubar,
+.geToolbar {
+    white-space: nowrap;
+    display: block;
+    width: 100%;
+}
+
+.geMenubarContainer .geItem,
+.geToolbar .geButton,
+.geToolbar .geLabel,
+.geSidebar,
+.geSidebarContainer .geTitle,
+.geSidebar .geItem,
+.mxPopupMenuItem {
+    -webkit-transition: all 0.1s ease-in-out;
+    -moz-transition: all 0.1s ease-in-out;
+    -o-transition: all 0.1s ease-in-out;
+    -ms-transition: all 0.1s ease-in-out;
+    transition: all 0.1s ease-in-out;
+}
+
+.geHint {
+    background-color: #ffffff;
+    border: 1px solid gray;
+    padding: 4px 16px 4px 16px;
+    border-radius: 3px;
+    -webkit-box-shadow: 1px 1px 2px 0px #ddd;
+    -moz-box-shadow: 1px 1px 2px 0px #ddd;
+    box-shadow: 1px 1px 2px 0px #ddd;
+    opacity: 0.8;
+    filter: alpha(opacity=80);
+    font-size: 9pt;
+}
+
+.geStatusAlert {
+    white-space: nowrap;
+    margin-top: -5px;
+    font-size: 12px;
+    padding: 4px 6px 4px 6px;
+    background-color: #f2dede;
+    border: 1px solid #ebccd1;
+    color: #a94442 !important;
+    border-radius: 3px;
+}
+
+.geStatusAlert:hover {
+    background-color: #f1d8d8;
+    border-color: #d6b2b8;
+}
+
+.geStatusMessage {
+    white-space: nowrap;
+    margin-top: -5px;
+    padding: 4px 6px 4px 6px;
+    font-size: 12px;
+    background: -webkit-linear-gradient(top, #dff0d8 0, #c8e5bc 100%);
+    background: -o-linear-gradient(top, #dff0d8 0, #c8e5bc 100%);
+    background: -webkit-gradient(linear, left top, left bottom, from(#dff0d8), to(#c8e5bc));
+    background: linear-gradient(to bottom, #dff0d8 0, #c8e5bc 100%);
+    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffdff0d8', endColorstr='#ffc8e5bc', GradientType=0);
+    background-repeat: repeat-x;
+    border: 1px solid #b2dba1;
+    border-radius: 3px;
+    color: #3c763d !important;
+}
+
+.geAlert {
+    position: absolute;
+    white-space: nowrap;
+    padding: 14px;
+    background-color: #f2dede;
+    border: 1px solid #ebccd1;
+    color: #a94442;
+    border-radius: 3px;
+    -webkit-box-shadow: 2px 2px 3px 0px #ddd;
+    -moz-box-shadow: 2px 2px 3px 0px #ddd;
+    box-shadow: 2px 2px 3px 0px #ddd;
+}
+
+.geBtn,
+.mxWindow .geBtn {
+    background-image: none;
+    background-color: #f5f5f5;
+    border-radius: 2px;
+    border: 1px solid #d8d8d8;
+    color: #333;
+    cursor: default;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.25px;
+    height: 29px;
+    line-height: 27px;
+    margin: 0 0 0 8px;
+    min-width: 72px;
+    outline: 0;
+    padding: 0 8px;
+    cursor: pointer;
+}
+
+.geBtn:hover,
+.geBtn:focus {
+    -webkit-box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.1);
+    border: 1px solid #c6c6c6;
+    background-color: #f8f8f8;
+    background-image: linear-gradient(#f8f8f8 0px, #f1f1f1 100%);
+    color: #111;
+}
+
+.geBtn:active,
+.geStatus:active {
+    opacity: .7;
+}
+
+.geBtn:disabled {
+    opacity: .5;
+}
+
+.geToolbarContainer>.geToolbar>div>a:active {
+    opacity: 0.5;
+}
+
+.geBtnUp {
+    background-image: url(data:image/gif;base64,R0lGODlhCgAGAJECAGZmZtXV1f///wAAACH/C1hNUCBEYXRhWE1QPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS4wLWMwNjAgNjEuMTM0Nzc3LCAyMDEwLzAyLzEyLTE3OjMyOjAwICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIiB4bWxuczpzdFJlZj0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlUmVmIyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ1M1IE1hY2ludG9zaCIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDo0QzM3ODJERjg4NUQxMUU0OTFEQ0E2MzRGQzcwNUY3NCIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDo0QzM3ODJFMDg4NUQxMUU0OTFEQ0E2MzRGQzcwNUY3NCI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOjRDMzc4MkREODg1RDExRTQ5MURDQTYzNEZDNzA1Rjc0IiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOjRDMzc4MkRFODg1RDExRTQ5MURDQTYzNEZDNzA1Rjc0Ii8+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+Af/+/fz7+vn49/b19PPy8fDv7u3s6+rp6Ofm5eTj4uHg397d3Nva2djX1tXU09LR0M/OzczLysnIx8bFxMPCwcC/vr28u7q5uLe2tbSzsrGwr66trKuqqainpqWko6KhoJ+enZybmpmYl5aVlJOSkZCPjo2Mi4qJiIeGhYSDgoGAf359fHt6eXh3dnV0c3JxcG9ubWxramloZ2ZlZGNiYWBfXl1cW1pZWFdWVVRTUlFQT05NTEtKSUhHRkVEQ0JBQD8+PTw7Ojk4NzY1NDMyMTAvLi0sKyopKCcmJSQjIiEgHx4dHBsaGRgXFhUUExIREA8ODQwLCgkIBwYFBAMCAQAAIfkEAQAAAgAsAAAAAAoABgAAAg6UjwiQBhGYglCKhXFLBQA7);
+    _background-image: url(up.gif);
+    background-position: center center;
+    background-repeat: no-repeat;
+}
+
+.geBtnUp:active {
+    background-color: #4d90fe;
+    background-image: linear-gradient(#4d90fe 0px, #357ae8 100%);
+}
+
+.geBtnDown {
+    background-image: url(data:image/gif;base64,R0lGODlhCgAGAJECANXV1WZmZv///wAAACH/C1hNUCBEYXRhWE1QPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS4wLWMwNjAgNjEuMTM0Nzc3LCAyMDEwLzAyLzEyLTE3OjMyOjAwICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIiB4bWxuczpzdFJlZj0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlUmVmIyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ1M1IE1hY2ludG9zaCIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDo0QzM3ODJEQjg4NUQxMUU0OTFEQ0E2MzRGQzcwNUY3NCIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDo0QzM3ODJEQzg4NUQxMUU0OTFEQ0E2MzRGQzcwNUY3NCI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOjRDMzc4MkQ5ODg1RDExRTQ5MURDQTYzNEZDNzA1Rjc0IiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOjRDMzc4MkRBODg1RDExRTQ5MURDQTYzNEZDNzA1Rjc0Ii8+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+Af/+/fz7+vn49/b19PPy8fDv7u3s6+rp6Ofm5eTj4uHg397d3Nva2djX1tXU09LR0M/OzczLysnIx8bFxMPCwcC/vr28u7q5uLe2tbSzsrGwr66trKuqqainpqWko6KhoJ+enZybmpmYl5aVlJOSkZCPjo2Mi4qJiIeGhYSDgoGAf359fHt6eXh3dnV0c3JxcG9ubWxramloZ2ZlZGNiYWBfXl1cW1pZWFdWVVRTUlFQT05NTEtKSUhHRkVEQ0JBQD8+PTw7Ojk4NzY1NDMyMTAvLi0sKyopKCcmJSQjIiEgHx4dHBsaGRgXFhUUExIREA8ODQwLCgkIBwYFBAMCAQAAIfkEAQAAAgAsAAAAAAoABgAAAg6UjxLLewEiCAnOZBzeBQA7);
+    _background-image: url(down.gif);
+    background-position: center center;
+    background-repeat: no-repeat;
+}
+
+.geBtnDown:active {
+    background-color: #4d90fe;
+    background-image: linear-gradient(#4d90fe 0px, #357ae8 100%);
+}
+
+.geColorBtn {
+    background-color: #f5f5f5;
+    background-image: linear-gradient(#f5f5f5 0px, #e1e1e1 100%);
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.5);
+    color: #333;
+    cursor: default;
+    margin: 0px;
+    outline: 0;
+    padding: 0px;
+    cursor: pointer;
+}
+
+.geColorBtn:hover {
+    -webkit-box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.7);
+}
+
+.geColorBtn:active {
+    background-color: #4d90fe;
+    background-image: linear-gradient(#4d90fe 0px, #357ae8 100%);
+    border: 1px solid #2f5bb7;
+    color: #fff;
+}
+
+.geColorBtn:disabled {
+    opacity: .5;
+}
+
+.gePrimaryBtn,
+.mxWindow .gePrimaryBtn {
+    background-color: #4d90fe;
+    background-image: linear-gradient(#4d90fe 0px, #4787ed 100%);
+    border: 1px solid #3079ed;
+    color: #fff;
+}
+
+.gePrimaryBtn:hover,
+.gePrimaryBtn:focus {
+    background-color: #357ae8;
+    background-image: linear-gradient(#4d90fe 0px, #357ae8 100%);
+    border: 1px solid #2f5bb7;
+    color: #fff;
+}
+
+.gePrimaryBtn:disabled {
+    opacity: .5;
+}
+
+.geAlertLink {
+    color: #843534;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.geActivePage {
+    font-weight: bold;
+    color: #188038 !important;
+}
+
+.geMenubarContainer,
+.geToolbarContainer,
+.geHsplit,
+.geVsplit {
+    background-color: #fbfbfb;
+}
+
+.geMenubar {
+    padding: 0px 2px 0px 2px;
+    vertical-align: middle;
+}
+
+.geMenubarContainer .geItem,
+.geToolbar .geItem {
+    padding: 6px 6px 6px 9px;
+    cursor: default;
+}
+
+.geMenubarContainer .geItem:hover {
+    background: #eee;
+    border-radius: 2px;
+}
+
+.geMenubarContainer .geItem:active {
+    background: #F8C382;
+}
+
+.geToolbarContainer .geButton:hover {
+    opacity: 1;
+    _filter: none !important;
+    background-color: #eee;
+    border-radius: 2px;
+}
+
+.geToolbarContainer .geButton:active,
+.geToolbarContainer .geLabel:active {
+    background-color: #F8C382;
+}
+
+.geToolbarContainer .geLabel:hover {
+    background: #eee;
+    border-radius: 2px;
+}
+
+.geToolbarButton {
+    opacity: 0.6;
+}
+
+.geToolbarButton:active {
+    opacity: 0.2;
+}
+
+.mxDisabled:hover {
+    background: inherit !important;
+}
+
+.geMenubar a.geStatus {
+    color: #888888;
+    padding-left: 12px;
+    display: inline-block;
+    cursor: default !important;
+}
+
+.geMenubar a.geStatus:hover {
+    background: transparent;
+}
+
+.geToolbarContainer {
+    border-bottom: 1px solid #dadce0;
+}
+
+.geSidebarContainer .geToolbarContainer {
+    background: transparent;
+    border-bottom: none;
+}
+
+.geSidebarContainer button {
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.geToolbar {
+    padding: 1px 0px 0px 6px;
+    border-top: 1px solid #dadce0;
+    -webkit-box-shadow: inset 0 1px 0 0 #fff;
+    -moz-box-shadow: inset 0 1px 0 0 #fff;
+    box-shadow: inset 0 1px 0 0 #fff;
+    padding-top: 5px;
+}
+
+.geToolbarContainer .geSeparator {
+    float: left;
+    width: 1px;
+    height: 20px;
+    background: #e5e5e5;
+    margin-left: 6px;
+    margin-right: 6px;
+    margin-top: 4px;
+}
+
+.geToolbarContainer .geButton {
+    float: left;
+    width: 20px;
+    height: 20px;
+    padding: 0px 2px 4px 2px;
+    margin: 2px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    opacity: 0.6;
+    _filter: alpha(opacity=60);
+}
+
+div.mxWindow .geButton {
+    margin: -1px 2px 2px 2px;
+    padding: 1px 2px 2px 1px;
+}
+
+.geToolbarContainer .geLabel {
+    float: left;
+    margin: 2px;
+    cursor: pointer;
+    padding: 3px 5px 3px 5px;
+    border: 1px solid transparent;
+}
+
+.geToolbarContainer .mxDisabled:hover {
+    border: 1px solid transparent !important;
+    opacity: 0.2 !important;
+    filter: alpha(opacity=20) !important;
+}
+
+.geDiagramBackdrop {
+    background-color: #f8f9fa;
+}
+
+.geSidebarContainer {
+    background: #fbfbfb;
+    overflow: hidden;
+    position: absolute;
+    overflow: auto;
+}
+
+.geTabContainer {
+    border-top: 1px solid #e5e5e5;
+    background-color: #f1f3f4;
+}
+
+.geSidebar {
+    border-bottom: 1px solid #e5e5e5;
+    padding: 6px;
+    padding-left: 10px;
+    _padding: 2px;
+    _padding-left: 6px;
+    padding-bottom: 6px;
+    overflow: hidden;
+}
+
+.geSidebarContainer .geTitle {
+    display: block;
+    font-size: 13px;
+    border-bottom: 1px solid #e5e5e5;
+    font-weight: 500;
+    padding: 8px 0px 8px 14px;
+    margin: 0px;
+    cursor: default;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4em;
+}
+
+.geSidebarContainer .geTitle:hover {
+    background: #eee;
+    border-radius: 2px;
+}
+
+.geSidebarContainer .geTitle:active {
+    background-color: #F8C382;
+}
+
+.geSidebarContainer .geDropTarget {
+    border-radius: 10px;
+    border: 2px dotted #b0b0b0;
+    text-align: center;
+    padding: 6px;
+    margin: 6px;
+    color: #a0a0a0;
+    fontSize: 13px;
+}
+
+.geTitle img {
+    opacity: 0.5;
+    _filter: alpha(opacity=50);
+}
+
+.geTitle img:hover {
+    opacity: 1;
+    _filter: alpha(opacity=100);
+}
+
+.geTitle .geButton {
+    border: 1px solid transparent;
+    padding: 3px;
+    border-radius: 2px;
+}
+
+.geTitle .geButton:hover {
+    border: 1px solid gray;
+}
+
+.geSidebar .geItem {
+    display: inline-block;
+    background-repeat: no-repeat;
+    background-position: 50% 50%;
+    border-radius: 8px;
+}
+
+.geSidebar .geItem:hover {
+    background-color: #e0e0e0;
+}
+
+.geItem {
+    vertical-align: top;
+    display: inline-block;
+}
+
+.geSidebarTooltip {
+    position: absolute;
+    background: #fbfbfb;
+    overflow: hidden;
+    box-shadow: 0 2px 6px 2px rgba(60, 64, 67, .15);
+    border-radius: 6px;
+    _filter: progid:DXImageTransform.Microsoft.DropShadow(OffX=2, OffY=2, Color='#d5d5d5', Positive='true');
+}
+
+.geFooterContainer {
+    background: #e5e5e5;
+    border-top: 1px solid #c0c0c0;
+}
+
+.geFooterContainer a {
+    display: inline-block;
+    box-sizing: border-box;
+    width: 100%;
+    white-space: nowrap;
+    font-size: 14px;
+    color: #235695;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.geFooterContainer table {
+    border-collapse: collapse;
+    margin: 0 auto;
+}
+
+.geFooterContainer td {
+    border-left: 1px solid #c0c0c0;
+    border-right: 1px solid #c0c0c0;
+}
+
+.geFooterContainer td:hover {
+    background-color: #b3b3b3;
+}
+
+.geHsplit {
+    cursor: col-resize;
+    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAHBAMAAADdS/HjAAAAGFBMVEUzMzP///9tbW1QUFCKiopBQUF8fHxfX1/IXlmXAAAAHUlEQVQImWMQEGAQFWUQFmYQF2cQEmIQE2MQEQEACy4BF67hpEwAAAAASUVORK5CYII=);
+    _background-image: url('thumb_vertical.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+}
+
+.geVsplit {
+    font-size: 1pt;
+    cursor: row-resize;
+    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAcAAAAEBAMAAACw6DhOAAAAGFBMVEUzMzP///9tbW1QUFCKiopBQUF8fHxfX1/IXlmXAAAAFElEQVQImWNgNVdzYBAUFBRggLMAEzYBy29kEPgAAAAASUVORK5CYII=);
+    _background-image: url('thumb_horz.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+}
+
+.geHsplit {
+    border-left: 1px solid #e5e5e5;
+    border-right: 1px solid #e5e5e5;
+}
+
+.geVSplit {
+    border-top: 1px solid #e5e5e5;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.geHsplit:hover,
+.geVsplit:hover {
+    background-color: #e0e0e0;
+}
+
+.geDialog {
+    position: absolute;
+    background: white;
+    line-height: 1em;
+    overflow: hidden;
+    padding: 30px;
+    border: 1px solid #acacac;
+    -webkit-box-shadow: 0px 0px 2px 2px #d5d5d5;
+    -moz-box-shadow: 0px 0px 2px 2px #d5d5d5;
+    box-shadow: 0px 0px 2px 2px #d5d5d5;
+    _filter: progid:DXImageTransform.Microsoft.DropShadow(OffX=2, OffY=2, Color='#d5d5d5', Positive='true');
+    z-index: 2;
+}
+
+.geTransDialog {
+    position: absolute;
+    overflow: hidden;
+    padding: 30px;
+    z-index: 2;
+}
+
+.geDialogClose {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    opacity: 0.5;
+    cursor: pointer;
+    _filter: alpha(opacity=50);
+}
+
+.geDialogClose:hover {
+    opacity: 1;
+}
+
+.geDialogTitle {
+    box-sizing: border-box;
+    white-space: nowrap;
+    background: rgb(229, 229, 229);
+    border-bottom: 1px solid rgb(192, 192, 192);
+    font-size: 15px;
+    font-weight: bold;
+    text-align: center;
+    color: rgb(35, 86, 149);
+}
+
+.geDialogFooter {
+    background: whiteSmoke;
+    white-space: nowrap;
+    text-align: right;
+    box-sizing: border-box;
+    border-top: 1px solid #e5e5e5;
+    color: darkGray;
+}
+
+.geSprite {
+    background: url('data:image/png;base64,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') no-repeat;
+    _background: url('sprites.png') no-repeat top left;
+    width: 21px;
+    height: 21px;
+}
+
+.geBaseButton {
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #c0c0c0;
+    cursor: pointer;
+    background-color: #ececec;
+    background-image: linear-gradient(#ececec 0%, #fcfcfc 100%);
+}
+
+.geBaseButton:hover {
+    background: #ececec;
+}
+
+.geBigButton {
+    color: #ffffff;
+    border: none;
+    padding: 4px 10px;
+    font-size: 14px;
+    white-space: nowrap;
+    border-radius: 3px;
+    background-color: #0052cc;
+    currsor: pointer;
+    transition: background-color 0.1s ease-out;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.geBigButton:hover {
+    background-color: #0065ff;
+}
+
+.geBigButton:active {
+    background-color: #0747a6;
+}
+
+html body .geBigStandardButton {
+    color: #344563;
+    background-color: rgba(9, 30, 66, 0.08);
+}
+
+html body .geBigStandardButton:hover {
+    background-color: rgba(9, 30, 66, 0.13);
+}
+
+html body .geBigStandardButton:active {
+    background-color: #F8C382;
+    color: #600000;
+}
+
+@media print {
+    div.geNoPrint {
+        display: none !important;
+    }
+}
+
+.geSprite-actualsize {
+    background-position: 0 0;
+}
+
+.geSprite-bold {
+    background-position: 0 -46px;
+}
+
+.geSprite-bottom {
+    background-position: 0 -92px;
+}
+
+.geSprite-center {
+    background-position: 0 -138px;
+}
+
+.geSprite-delete {
+    background-position: 0 -184px;
+}
+
+.geSprite-fillcolor {
+    background-position: 0 -229px;
+}
+
+.geSprite-fit {
+    background-position: 0 -277px;
+}
+
+.geSprite-fontcolor {
+    background-position: 0 -322px;
+}
+
+.geSprite-gradientcolor {
+    background-position: 0 -368px;
+}
+
+.geSprite-image {
+    background-position: 0 -414px;
+}
+
+.geSprite-italic {
+    background-position: 0 -460px;
+}
+
+.geSprite-left {
+    background-position: 0 -505px;
+}
+
+.geSprite-middle {
+    background-position: 0 -552px;
+}
+
+.geSprite-print {
+    background-position: 0 -598px;
+}
+
+.geSprite-redo {
+    background-position: 0 -644px;
+}
+
+.geSprite-right {
+    background-position: 0 -689px;
+}
+
+.geSprite-shadow {
+    background-position: 0 -735px;
+}
+
+.geSprite-strokecolor {
+    background-position: 0 -782px;
+}
+
+.geSprite-top {
+    background-position: 0 -828px;
+}
+
+.geSprite-underline {
+    background-position: 0 -874px;
+}
+
+.geSprite-undo {
+    background-position: 0 -920px;
+}
+
+.geSprite-zoomin {
+    background-position: 0 -966px;
+}
+
+.geSprite-zoomout {
+    background-position: 0 -1012px;
+}
+
+.geSprite-arrow {
+    background-position: 0 -1059px;
+}
+
+.geSprite-linkedge {
+    background-position: 0 -1105px;
+}
+
+.geSprite-straight {
+    background-position: 0 -1150px;
+}
+
+.geSprite-entity {
+    background-position: 0 -1196px;
+}
+
+.geSprite-orthogonal {
+    background-position: 0 -1242px;
+}
+
+.geSprite-curved {
+    background-position: 0 -1288px;
+}
+
+.geSprite-noarrow {
+    background-position: 0 -1334px;
+}
+
+.geSprite-endclassic {
+    background-position: 0 -1380px;
+}
+
+.geSprite-endopen {
+    background-position: 0 -1426px;
+}
+
+.geSprite-endblock {
+    background-position: 0 -1472px;
+}
+
+.geSprite-endoval {
+    background-position: 0 -1518px;
+}
+
+.geSprite-enddiamond {
+    background-position: 0 -1564px;
+}
+
+.geSprite-endthindiamond {
+    background-position: 0 -1610px;
+}
+
+.geSprite-endclassictrans {
+    background-position: 0 -1656px;
+}
+
+.geSprite-endblocktrans {
+    background-position: 0 -1702px;
+}
+
+.geSprite-endovaltrans {
+    background-position: 0 -1748px;
+}
+
+.geSprite-enddiamondtrans {
+    background-position: 0 -1794px;
+}
+
+.geSprite-endthindiamondtrans {
+    background-position: 0 -1840px;
+}
+
+.geSprite-startclassic {
+    background-position: 0 -1886px;
+}
+
+.geSprite-startopen {
+    background-position: 0 -1932px;
+}
+
+.geSprite-startblock {
+    background-position: 0 -1978px;
+}
+
+.geSprite-startoval {
+    background-position: 0 -2024px;
+}
+
+.geSprite-startdiamond {
+    background-position: 0 -2070px;
+}
+
+.geSprite-startthindiamond {
+    background-position: 0 -2116px;
+}
+
+.geSprite-startclassictrans {
+    background-position: 0 -2162px;
+}
+
+.geSprite-startblocktrans {
+    background-position: 0 -2208px;
+}
+
+.geSprite-startovaltrans {
+    background-position: 0 -2254px;
+}
+
+.geSprite-startdiamondtrans {
+    background-position: 0 -2300px;
+}
+
+.geSprite-startthindiamondtrans {
+    background-position: 0 -2346px;
+}
+
+.geSprite-globe {
+    background-position: 0 -2392px;
+}
+
+.geSprite-orderedlist {
+    background-position: 0 -2438px;
+}
+
+.geSprite-unorderedlist {
+    background-position: 0 -2484px;
+}
+
+.geSprite-horizontalrule {
+    background-position: 0 -2530px;
+}
+
+.geSprite-link {
+    background-position: 0 -2576px;
+}
+
+.geSprite-indent {
+    background-position: 0 -2622px;
+}
+
+.geSprite-outdent {
+    background-position: 0 -2668px;
+}
+
+.geSprite-code {
+    background-position: 0 -2714px;
+}
+
+.geSprite-fontbackground {
+    background-position: 0 -2760px;
+}
+
+.geSprite-removeformat {
+    background-position: 0 -2806px;
+}
+
+.geSprite-superscript {
+    background-position: 0 -2852px;
+}
+
+.geSprite-subscript {
+    background-position: 0 -2898px;
+}
+
+.geSprite-table {
+    background-position: 0 -2944px;
+}
+
+.geSprite-deletecolumn {
+    background-position: 0 -2990px;
+}
+
+.geSprite-deleterow {
+    background-position: 0 -3036px;
+}
+
+.geSprite-insertcolumnafter {
+    background-position: 0 -3082px;
+}
+
+.geSprite-insertcolumnbefore {
+    background-position: 0 -3128px;
+}
+
+.geSprite-insertrowafter {
+    background-position: 0 -3174px;
+}
+
+.geSprite-insertrowbefore {
+    background-position: 0 -3220px;
+}
+
+.geSprite-grid {
+    background-position: 0 -3272px;
+}
+
+.geSprite-guides {
+    background-position: 0 -3324px;
+}
+
+.geSprite-dots {
+    background-position: 0 -3370px;
+}
+
+.geSprite-alignleft {
+    background-position: 0 -3416px;
+}
+
+.geSprite-alignright {
+    background-position: 0 -3462px;
+}
+
+.geSprite-aligncenter {
+    background-position: 0 -3508px;
+}
+
+.geSprite-aligntop {
+    background-position: 0 -3554px;
+}
+
+.geSprite-alignbottom {
+    background-position: 0 -3600px;
+}
+
+.geSprite-alignmiddle {
+    background-position: 0 -3646px;
+}
+
+.geSprite-justifyfull {
+    background-position: 0 -3692px;
+}
+
+.geSprite-formatpanel {
+    background-position: 0 -3738px;
+}
+
+.geSprite-connection {
+    background-position: 0 -3784px;
+}
+
+.geSprite-vertical {
+    background-position: 0 -3830px;
+}
+
+.geSprite-simplearrow {
+    background-position: 0 -3876px;
+}
+
+.geSprite-plus {
+    background-position: 0 -3922px;
+}
+
+.geSprite-rounded {
+    background-position: 0 -3968px;
+}
+
+.geSprite-toback {
+    background-position: 0 -4014px;
+}
+
+.geSprite-tofront {
+    background-position: 0 -4060px;
+}
+
+.geSprite-duplicate {
+    background-position: 0 -4106px;
+}
+
+.geSprite-insert {
+    background-position: 0 -4152px;
+}
+
+.geSprite-endblockthin {
+    background-position: 0 -4201px;
+}
+
+.geSprite-endblockthintrans {
+    background-position: 0 -4247px;
+}
+
+.geSprite-enderone {
+    background-position: 0 -4293px;
+}
+
+.geSprite-enderonetoone {
+    background-position: 0 -4339px;
+}
+
+.geSprite-enderonetomany {
+    background-position: 0 -4385px;
+}
+
+.geSprite-endermany {
+    background-position: 0 -4431px;
+}
+
+.geSprite-enderoneopt {
+    background-position: 0 -4477px;
+}
+
+.geSprite-endermanyopt {
+    background-position: 0 -4523px;
+}
+
+.geSprite-endclassicthin {
+    background-position: 0 -4938px;
+}
+
+.geSprite-endclassicthintrans {
+    background-position: 0 -4984px;
+}
+
+.geSprite-enddash {
+    background-position: 0 -5029px;
+}
+
+.geSprite-endcircleplus {
+    background-position: 0 -5075px;
+}
+
+.geSprite-endcircle {
+    background-position: 0 -5121px;
+}
+
+.geSprite-endasync {
+    background-position: 0 -5167px;
+}
+
+.geSprite-endasynctrans {
+    background-position: 0 -5213px;
+}
+
+.geSprite-startblockthin {
+    background-position: 0 -4569px;
+}
+
+.geSprite-startblockthintrans {
+    background-position: 0 -4615px;
+}
+
+.geSprite-starterone {
+    background-position: 0 -4661px;
+}
+
+.geSprite-starteronetoone {
+    background-position: 0 -4707px;
+}
+
+.geSprite-starteronetomany {
+    background-position: 0 -4753px;
+}
+
+.geSprite-startermany {
+    background-position: 0 -4799px;
+}
+
+.geSprite-starteroneopt {
+    background-position: 0 -4845px;
+}
+
+.geSprite-startermanyopt {
+    background-position: 0 -4891px;
+}
+
+.geSprite-startclassicthin {
+    background-position: 0 -5259px;
+}
+
+.geSprite-startclassicthintrans {
+    background-position: 0 -5305px;
+}
+
+.geSprite-startdash {
+    background-position: 0 -5351px;
+}
+
+.geSprite-startcircleplus {
+    background-position: 0 -5397px;
+}
+
+.geSprite-startcircle {
+    background-position: 0 -5443px;
+}
+
+.geSprite-startasync {
+    background-position: 0 -5489px;
+}
+
+.geSprite-startasynctrans {
+    background-position: 0 -5535px;
+}
+
+.geSprite-startcross {
+    background-position: 0 -5581px;
+}
+
+.geSprite-startopenthin {
+    background-position: 0 -5627px;
+}
+
+.geSprite-startopenasync {
+    background-position: 0 -5673px;
+}
+
+.geSprite-endcross {
+    background-position: 0 -5719px;
+}
+
+.geSprite-endopenthin {
+    background-position: 0 -5765px;
+}
+
+.geSprite-endopenasync {
+    background-position: 0 -5811px;
+}
+
+.geSprite-verticalelbow {
+    background-position: 0 -5857px;
+}
+
+.geSprite-horizontalelbow {
+    background-position: 0 -5903px;
+}
+
+.geSprite-horizontalisometric {
+    background-position: 0 -5949px;
+}
+
+.geSprite-verticalisometric {
+    background-position: 0 -5995px;
+}
+
+.geSvgSprite {
+    background-position: center center;
+}
+
+.geFlipSprite {
+    transform: scaleX(-1);
+}
+
+.geSprite-box {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='10' transform='translate(0.5,0.5)'><rect stroke='black' fill='none' x='2' y='2' width='6' height='6'/><path stroke='black' d='M8 5 L 18 5'/></svg>");
+}
+
+.geSprite-halfCircle {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='10' transform='translate(0.5,0.5)'><path stroke='black' fill='none' d='M 2 2 Q 6 2 6 5 Q 6 8 2 8 M 6 5 L 18 5'/></svg>");
+}
+
+/* Light theme overrides (classic grapheditor). */
+
+body.geEditor {
+    background-color: #ffffff !important;
+}
+
+.geMenubarContainer {
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid #e5e5e5 !important;
+}
+
+.geToolbarContainer {
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid #e5e5e5 !important;
+}
+
+.geDiagramContainer {
+    background-color: #ffffff !important;
+}
+
+.geSidebarContainer {
+    background-color: #fbfbfb !important;
+    border-right: 1px solid #e5e5e5 !important;
+}
+
+.geFormatContainer {
+    background-color: #fbfbfb !important;
+    border-left: 1px solid #e5e5e5 !important;
+}
+
+.geDiagramBackdrop {
+    background-color: #ffffff !important;
+}
+
+.geBackgroundPage {
+    background-color: #ffffff !important;
+    box-shadow: 0px 0px 2px 1px #d1d1d1 !important;
+}
+
+.geMenubarContainer a.geItem {
+    color: #333333 !important;
+}
+
+.geToolbarContainer .geButton,
+.geToolbarContainer .geLabel {
+    color: #333333 !important;
+}
+
+.geSidebarContainer .geTitle {
+    color: #333333 !important;
+    border-bottom: 1px solid #e5e5e5 !important;
+}
+
+.geSidebarContainer .geTitle:hover {
+    background: #f0f0f0 !important;
+}
+
+.geMenubar a.geStatus {
+    color: #666666 !important;
+}
+
+.geTabContainer {
+    background-color: #f8f9fa !important;
+    border-top: 1px solid #e5e5e5 !important;
+}
+
+.geSidebarFooter {
+    border-top: 1px solid #e5e5e5 !important;
+    background: #fbfbfb !important;
+}
+
+.geFormatSection {
+    border-bottom: 1px solid #e5e5e5 !important;
+}
+
+.mxTooltip {
+    background: #ffffff !important;
+    border: 1px solid #cccccc !important;
+    color: #333333 !important;
+}
+
+.mxPopupMenu {
+    background: #ffffff !important;
+    border: 1px solid #cccccc !important;
+}
+
+.mxPopupMenuItem {
+    color: #333333 !important;
+}
+
+.mxPopupMenuItem:hover {
+    background: #f0f0f0 !important;
+}
+
+/* ===========================================================
+   Pixel-native canvas viewport and the controls that drive it.
+   The chrome above is classic GraphEditor markup; everything in
+   this section renders the diagram itself on <canvas>.
+   =========================================================== */
+
+html,
+body.geEditor {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+body.geEditor {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+}
+
+.geEditor button,
+.geEditor input,
+.geEditor select,
+.geEditor textarea {
+    font-family: inherit;
+}
+
+/* Diagram viewport ------------------------------------------------------- */
+
+.geDiagramContainer {
+    outline: none;
+}
+
+.geDiagramContainer .pixel-diagram-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: auto;
+    outline: none;
+    background: #ffffff;
+    scrollbar-color: #b7bec8 #f2f3f5;
+}
+
+.pixel-world-spacer {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    pointer-events: none;
+}
+
+.pixel-base-canvas,
+.pixel-overlay-canvas {
+    position: absolute;
+    display: block;
+    margin: 0px;
+    padding: 0px;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.pixel-base-canvas {
+    z-index: 1;
+    pointer-events: none;
+    background: #ffffff;
+}
+
+.pixel-media-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    z-index: 3;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.pixel-media-overlay {
+    position: absolute;
+    box-sizing: border-box;
+    transform-origin: 50% 50%;
+    overflow: hidden;
+    pointer-events: none;
+    background: #111;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .25);
+}
+
+.pixel-media-overlay.pixel-media-selected {
+    box-shadow: 0 0 0 2px #29a8df;
+}
+
+/* Native video is composited into the canvas in scene z-order; its overlay
+   only floats the control bar, so the box itself must stay invisible and let
+   canvas-painted objects in front of the video show through. */
+.pixel-media-overlay.pixel-media-canvas {
+    background: transparent;
+    box-shadow: none;
+}
+
+.pixel-media-canvas .pixel-media-visual {
+    display: none;
+}
+
+.pixel-media-overlay.pixel-media-canvas.pixel-media-selected {
+    box-shadow: 0 0 0 2px #29a8df;
+}
+
+.pixel-media-visual,
+.pixel-media-frame,
+.pixel-media-video {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #111;
+    pointer-events: none;
+}
+
+.pixel-media-controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-sizing: border-box;
+    min-height: 30px;
+    padding: 3px 5px;
+    color: #fff;
+    background: linear-gradient(transparent, rgba(0, 0, 0, .9));
+    font: 11px Arial, sans-serif;
+    pointer-events: auto;
+    opacity: .9;
+    transition: opacity .12s ease;
+}
+
+.pixel-media-overlay:hover .pixel-media-controls,
+.pixel-media-selected .pixel-media-controls {
+    opacity: 1;
+}
+
+.pixel-media-button {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    color: #fff;
+    background: rgba(255, 255, 255, .12);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 24px;
+}
+
+.pixel-media-button:hover {
+    background: rgba(255, 255, 255, .26);
+}
+
+.pixel-media-seek {
+    flex: 1 1 80px;
+    min-width: 32px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+}
+
+.pixel-media-time {
+    flex: 0 0 42px;
+    box-sizing: border-box;
+    width: 42px;
+    height: 21px;
+    padding: 1px 3px;
+    border: 1px solid rgba(255, 255, 255, .35);
+    border-radius: 2px;
+    color: #fff;
+    background: rgba(0, 0, 0, .45);
+    text-align: right;
+    font: 10px Consolas, monospace;
+}
+
+.pixel-media-duration,
+.pixel-media-volume-icon {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.pixel-media-volume {
+    flex: 0 1 58px;
+    width: 58px;
+    min-width: 28px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+}
+
+.pixel-media-compact .pixel-media-duration,
+.pixel-media-compact .pixel-media-volume-icon,
+.pixel-media-compact .pixel-media-volume {
+    display: none;
+}
+
+.pixel-media-tiny .pixel-media-time {
+    display: none;
+}
+
+.pixel-media-overlay:fullscreen,
+.pixel-media-overlay:-webkit-full-screen {
+    width: 100vw !important;
+    height: 100vh !important;
+    left: 0 !important;
+    top: 0 !important;
+    transform: none !important;
+    background: #000;
+}
+
+@media (max-width: 720px) {
+    .pixel-media-duration,
+    .pixel-media-volume-icon {
+        display: none;
+    }
+}
+
+.pixel-overlay-canvas {
+    z-index: 2;
+    background: transparent;
+}
+
+/* Rich HTML is edited directly over the canvas shape. The painter suppresses
+   the active block, so this overlay can remain transparent. */
+.pixel-text-editor {
+    position: absolute;
+    z-index: 20;
+    box-sizing: border-box;
+    display: flex;
+    /* Height follows the content, so editing never needs an inner scrollbar. */
+    height: auto;
+    overflow: visible;
+    /* The focus decoration must not consume label space or offset the text. */
+    padding: 0;
+    border: none;
+    outline: 2px solid #29b6f2;
+    border-radius: 3px;
+    background: transparent;
+    box-shadow: 0px 0px 0px 2px rgba(41, 182, 242, 0.18);
+}
+
+.pixel-text-editor .pixel-text-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    /* Grow with the content rather than scrolling inside a fixed box. */
+    max-height: none;
+    overflow: visible;
+    border: none;
+    outline: none;
+    background: transparent;
+    line-height: 1.28;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    cursor: text;
+    -webkit-user-select: text;
+    user-select: text;
+
+    /* .geDiagramContainer sets font-size to 0px; never inherit it here. */
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+}
+
+/* Remove browser heading/paragraph margins and use the exact block scales
+   from RichText.js. UA defaults were the reason a single heading opened an
+   editor several lines tall and shifted away from its painted baseline. */
+.pixel-text-editor .pixel-text-input > div,
+.pixel-text-editor .pixel-text-input > p,
+.pixel-text-editor .pixel-text-input > h1,
+.pixel-text-editor .pixel-text-input > h2,
+.pixel-text-editor .pixel-text-input > h3,
+.pixel-text-editor .pixel-text-input > pre {
+    margin: 0;
+    padding: 0;
+    line-height: 1.28;
+    font-family: inherit;
+}
+
+.pixel-text-editor .pixel-text-input > h1 {
+    font-size: 1.7em;
+    font-weight: 700;
+}
+
+.pixel-text-editor .pixel-text-input > h2 {
+    font-size: 1.4em;
+    font-weight: 700;
+}
+
+.pixel-text-editor .pixel-text-input > h3 {
+    font-size: 1.2em;
+    font-weight: 700;
+}
+
+.pixel-text-editor .pixel-text-input > pre {
+    font-size: 1em;
+    white-space: pre-wrap;
+}
+
+.pixel-text-editor .pixel-text-input ul,
+.pixel-text-editor .pixel-text-input ol {
+    margin: 0;
+    padding-left: 22px;
+    line-height: 1.28;
+}
+
+.pixel-text-editor .pixel-text-input li {
+    margin: 0;
+    padding: 0;
+}
+
+/* Menubar ---------------------------------------------------------------- */
+
+.geMenubarContainer .geAppMark {
+    float: left;
+    width: 20px;
+    height: 20px;
+    margin: 5px 6px 0px 4px;
+    display: block;
+    line-height: 20px;
+    text-align: center;
+    color: #ffffff;
+    background: linear-gradient(145deg, #1ea7e8, #1163aa);
+    border: 1px solid #0f5792;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 11px;
+}
+
+.geMenubarContainer .geItem {
+    float: left;
+    display: block;
+    font-size: 13px;
+}
+
+.geMenubarContainer .geItem.geMenuActive {
+    background: #eeeeee;
+    border-radius: 2px;
+}
+
+.geMenubar a.geStatus {
+    float: left;
+}
+
+.geMenubarContainer .geDocumentTitle {
+    float: right;
+    padding: 7px 8px 0px 0px;
+    max-width: 40%;
+    color: #999999;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.geMenuWrapper {
+    float: left;
+    position: relative;
+}
+
+.geMenuDropdown {
+    position: fixed;
+    min-width: 220px;
+    max-height: calc(100vh - 8px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 3px;
+    background: #ffffff;
+    border-radius: 4px;
+    box-shadow: 0px 2px 6px 2px rgba(60, 64, 67, 0.15);
+    z-index: 100001;
+}
+
+.geMenuDropdown .geMenuItem,
+.geContextMenu .geMenuItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    width: 100%;
+    padding: 7px 18px;
+    border: none;
+    background: transparent;
+    color: #333333;
+    text-align: left;
+    white-space: nowrap;
+    cursor: default;
+    font-family: Helvetica Neue, Helvetica, Arial Unicode MS, Arial;
+    font-size: 10pt;
+}
+
+.geMenuDropdown .geMenuItem:hover,
+.geContextMenu .geMenuItem:hover {
+    background: #eeeeee;
+}
+
+.geMenuDropdown .geMenuItem kbd,
+.geContextMenu .geMenuItem kbd {
+    color: #999999;
+    font-family: inherit;
+    font-size: 8pt;
+}
+
+.geMenuCheckbox {
+    width: 14px;
+    height: 14px;
+    margin: 0 8px 0 -10px;
+    vertical-align: -2px;
+    pointer-events: none;
+}
+
+.geMenuDropdown hr,
+.geContextMenu hr {
+    height: 1px;
+    margin: 3px 0px;
+    color: #cccccc;
+    background-color: #cccccc;
+    border: none;
+}
+
+.geContextMenu {
+    position: fixed;
+    min-width: 220px;
+    max-height: calc(100vh - 8px);
+    overflow-y: auto;
+    padding: 3px;
+    background: #ffffff;
+    border-radius: 4px;
+    box-shadow: 0px 2px 6px 2px rgba(60, 64, 67, 0.15);
+    z-index: 10002;
+}
+
+/* Toolbar ---------------------------------------------------------------- */
+
+/* Floats would wrap once the toolbar runs out of room; a flex row keeps the
+   classic item metrics but scrolls horizontally instead. */
+.geToolbarContainer .geToolbar {
+    box-sizing: border-box;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    scrollbar-width: none;
+}
+
+.geToolbarContainer .geToolbar > * {
+    flex: 0 0 auto;
+}
+
+.geToolbarContainer .geToolbar::-webkit-scrollbar {
+    height: 0px;
+}
+
+.geToolbarContainer .geButton.geChecked {
+    opacity: 1;
+    background-color: rgba(9, 30, 66, 0.14);
+    border-color: rgba(9, 30, 66, 0.18);
+    box-shadow: inset 0 1px 3px rgba(9, 30, 66, 0.28);
+    border-radius: 2px;
+}
+
+.geToolbarContainer .geLabel.geTextButton {
+    min-width: 14px;
+    text-align: center;
+    font-size: 13px;
+    color: #333333;
+}
+
+.geToolbarContainer .geLabel.geTextButton.geChecked {
+    background-color: rgba(9, 30, 66, 0.14);
+    box-shadow: inset 0 1px 3px rgba(9, 30, 66, 0.28);
+    border-radius: 2px;
+}
+
+.geToolbarContainer .geToolbarSelect {
+    float: left;
+    height: 22px;
+    max-width: 108px;
+    margin: 2px 2px 0px 2px;
+    padding: 0px 2px;
+    border: 1px solid #d0d0d0;
+    border-radius: 2px;
+    background: #ffffff;
+    color: #333333;
+    font-size: 11px;
+}
+
+.geToolbarContainer .geColorItem {
+    float: left;
+    position: relative;
+    width: 24px;
+    height: 22px;
+    margin: 2px;
+    cursor: pointer;
+}
+
+.geToolbarContainer .geColorItem .geSprite {
+    position: absolute;
+    left: 2px;
+    top: 0px;
+    opacity: 0.6;
+}
+
+.geToolbarContainer .geColorItem:hover {
+    background: #eeeeee;
+    border-radius: 2px;
+}
+
+.geToolbarContainer .geColorItem input {
+    position: absolute;
+    left: 3px;
+    bottom: 0px;
+    width: 18px;
+    height: 4px;
+    padding: 0px;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+/* Shape sidebar ---------------------------------------------------------- */
+
+.geSidebarContainer .geSearchBox {
+    display: block;
+    box-sizing: border-box;
+    width: calc(100% - 12px);
+    height: 26px;
+    margin: 6px;
+    padding: 2px 6px;
+    border: 1px solid #d0d0d0;
+    border-radius: 2px;
+    background: #ffffff;
+    outline: none;
+    font-size: 12px;
+}
+
+.geSidebarContainer .geSearchBox:focus {
+    border-color: #4b9bd3;
+}
+
+.geSidebar .geItem {
+    cursor: move;
+    text-align: center;
+    vertical-align: top;
+}
+
+.geSidebar .geItem .geShapeSvg {
+    display: block;
+    pointer-events: none;
+    overflow: visible;
+}
+
+.geSidebar .geItem .geShapeHtml {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    overflow: hidden;
+    pointer-events: none;
+    color: #303030;
+    font: 9px Arial, Helvetica, sans-serif;
+    line-height: 1.1;
+}
+
+.geSidebarFooter {
+    position: absolute;
+    left: 0px;
+    display: flex;
+    align-items: center;
+    background: #fbfbfb;
+    font-size: 11px;
+    color: #333333;
+    overflow: hidden;
+}
+
+.geSidebarFooter span {
+    flex: 1;
+    padding: 0px 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.geSidebarFooter button {
+    width: 26px;
+    height: 100%;
+    border: none;
+    border-right: 1px solid #e5e5e5;
+    background: transparent;
+    cursor: pointer;
+}
+
+.geSidebarFooter button:last-child {
+    border-right: none;
+    border-left: 1px solid #e5e5e5;
+}
+
+.geSidebarFooter button:hover {
+    background: #f0f0f0;
+}
+
+/* Format panel ----------------------------------------------------------- */
+
+.geFormatContainer {
+    color: rgb(112, 112, 112);
+    text-align: left;
+}
+
+.geFormatTabs {
+    display: flex;
+    white-space: nowrap;
+}
+
+.geFormatTab {
+    flex: 1;
+    height: 25px;
+    padding-top: 8px;
+    box-sizing: border-box;
+    text-align: center;
+    font-weight: bold;
+    font-size: 13px;
+    overflow: hidden;
+    cursor: pointer;
+    background-color: #f1f3f4;
+    border-width: 0px 0px 1px 1px;
+    border-style: solid;
+    border-color: #dadce0;
+    color: rgb(112, 112, 112);
+}
+
+.geFormatTab:first-child {
+    border-left-width: 0px;
+}
+
+.geFormatTab.geActiveTab {
+    background-color: transparent;
+    border-bottom-width: 0px;
+}
+
+.geFormatClose {
+    position: relative;
+    flex: 0 0 25px;
+    width: 25px;
+    height: 25px;
+    box-sizing: border-box;
+    background-color: #f1f3f4;
+    border-width: 0px 0px 1px 1px;
+    border-style: solid;
+    border-color: #dadce0;
+}
+
+.geFormatPanel {
+    display: block;
+}
+
+.geFormatPanel[hidden] {
+    display: none;
+}
+
+.geFormatSection {
+    padding: 12px 18px 12px 18px;
+}
+
+.geFormatSection .geFormatTitle {
+    padding: 0px 0px 6px 0px;
+    white-space: nowrap;
+    overflow: hidden;
+    font-weight: bold;
+    color: rgb(112, 112, 112);
+}
+
+.geFormatRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 24px;
+    padding: 3px 0px;
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+.geFormatRow > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.geFormatRow input:not([type="checkbox"]),
+.geFormatRow select {
+    box-sizing: border-box;
+    width: 104px;
+    height: 22px;
+    padding: 1px 3px;
+    border: 1px solid #d0d0d0;
+    border-radius: 2px;
+    background: #ffffff;
+    color: #333333;
+    font-size: 11px;
+}
+
+.geFormatRow input[type="color"] {
+    padding: 1px;
+    cursor: pointer;
+}
+
+.geFormatRow input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    margin: 0px;
+    border-width: 1px;
+}
+
+.geFormatRow input:disabled,
+.geFormatRow select:disabled {
+    opacity: 0.5;
+}
+
+.geFormatSection .geBtn {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 6px 0px 0px 0px;
+}
+
+/* Footer ----------------------------------------------------------------- */
+
+.geFooterContainer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0px 8px;
+    color: #666666;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.geFooterContainer .geFooterRight {
+    margin-left: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Floating windows (outline, layers) ------------------------------------- */
+
+.geCanvasWindow {
+    position: absolute;
+    z-index: 30;
+    background: #ffffff;
+    border: 1px solid #b6bec9;
+    border-radius: 4px;
+    box-shadow: 0px 4px 16px rgba(60, 64, 67, 0.22);
+    overflow: hidden;
+    font-size: 12px;
+}
+
+.geCanvasWindowTitle {
+    position: relative;
+    padding: 6px 26px 6px 10px;
+    background: #f1f3f4;
+    border-bottom: 1px solid #dadce0;
+    color: #333333;
+    font-weight: bold;
+    cursor: move;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+}
+
+.geCanvasWindowClose {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: #666666;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.geCanvasWindowClose:hover {
+    color: #000000;
+}
+
+.geCanvasWindowBody {
+    max-height: 320px;
+    overflow: auto;
+}
+
+.geOutlineCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+}
+
+.geLayerRow {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border-bottom: 1px solid #eeeeee;
+}
+
+.geLayerRow.geLayerActive {
+    background: #e8f1fb;
+}
+
+.geLayerName {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.geLayerIcon {
+    width: 20px;
+    height: 20px;
+    padding: 0px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    background: transparent;
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.geLayerIcon:hover {
+    border-color: #b6bec9;
+    background: #f4f6f8;
+}
+
+.geLayerButtons {
+    display: flex;
+    gap: 6px;
+    padding: 6px;
+    border-top: 1px solid #dadce0;
+    background: #fbfbfb;
+}
+
+.geLayerButtons .geBtn {
+    flex: 1;
+    min-width: 0;
+    margin: 0px;
+}
+
+.geSidebarDropActive {
+    background: #eaf4ff;
+    outline: 2px dashed #7cb2dd;
+    outline-offset: -3px;
+}
+
+.geCanvasTooltip {
+    position: fixed;
+    z-index: 10005;
+    display: none;
+    max-width: 280px;
+    padding: 6px;
+    background: whiteSmoke;
+    border: 1px solid lightGray;
+    border-radius: 3px;
+    box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.18);
+    color: black;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    pointer-events: none;
+    white-space: pre-wrap;
+}
+
+/* Toast and dialogs ------------------------------------------------------ */
+
+.geToast {
+    position: fixed;
+    left: 50%;
+    bottom: 46px;
+    z-index: 10003;
+    transform: translateX(-50%);
+    padding: 9px 14px;
+    color: #ffffff;
+    background: rgba(23, 32, 51, 0.94);
+    border-radius: 4px;
+    box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
+    font-size: 12px;
+}
+
+.geDialogBackdrop {
+    position: fixed;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    z-index: 10004;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(17, 24, 39, 0.35);
+}
+
+.geDialogBackdrop .geDialog {
+    position: relative;
+    width: 430px;
+    max-width: calc(100vw - 32px);
+    padding: 24px;
+    line-height: normal;
+}
+
+.geDialogBackdrop .geDialog h2 {
+    margin: 0px 0px 10px 0px;
+    font-size: 16px;
+    color: #333333;
+}
+
+.geDialogBackdrop .geDiagramSource {
+    box-sizing: border-box;
+    width: 100%;
+    height: 46vh;
+    padding: 8px;
+    border: 1px solid #d0d0d0;
+    border-radius: 2px;
+    resize: vertical;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.geServerPathInput {
+    box-sizing: border-box;
+    width: 100%;
+    height: 30px;
+    margin-bottom: 10px;
+    padding: 2px 8px;
+    border: 1px solid #d0d0d0;
+    border-radius: 2px;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 12px;
+}
+
+.geServerFileList {
+    max-height: 44vh;
+    overflow: auto;
+    border: 1px solid #dadce0;
+    border-radius: 2px;
+    padding: 4px;
+    color: #666666;
+    font-size: 12px;
+}
+
+.geServerFileRow {
+    display: block;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 2px;
+    background: transparent;
+    color: #333333;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 12px;
+}
+
+.geServerFileRow:hover {
+    background: #e8f1fb;
+}
+
+/* Edit Media dialog ------------------------------------------------------ */
+
+.geMediaSourceRow {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    margin-bottom: 10px;
+    min-width: 0;
+}
+
+.geMediaSourceRow .geServerPathInput {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+}
+
+.geMediaSourceSummary {
+    color: #596575;
+    background: #f3f5f7;
+    font-family: Consolas, Monaco, monospace;
+    text-overflow: ellipsis;
+}
+
+.geMediaReplaceButton {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.geImagePreview {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 180px;
+    margin-bottom: 10px;
+    /* The canvas fills the box; its own 8px inset does the padding. */
+    padding: 0px;
+    border: 1px dashed #c0c6cf;
+    border-radius: 3px;
+    background: repeating-conic-gradient(#f3f4f6 0% 25%, #ffffff 0% 50%) 50% / 16px 16px;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.geImagePreview.geImageDropActive {
+    border-color: #4b9bd3;
+    background: #eaf4ff;
+}
+
+.geImagePreview canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.geImageNote {
+    position: absolute;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.92);
+    font-size: 11px;
+    text-align: center;
+}
+
+.geImageNote.geImageOk {
+    color: #256b3d;
+}
+
+.geImageNote.geImageError {
+    color: #a94442;
+    background: #f8e7e7;
+}
+
+.geImageNote.geImageEmpty {
+    color: #7a828e;
+}
+
+.geImageOptions {
+    padding: 2px 0px 0px 0px;
+}
+
+.geImageOptions .geFormatRow select,
+.geImageOptions .geFormatRow input {
+    box-sizing: border-box;
+    width: 190px;
+    height: 24px;
+    padding: 1px 4px;
+    border: 1px solid #d0d0d0;
+    border-radius: 2px;
+    font-size: 12px;
+}
+
+/* CScript dialog --------------------------------------------------------- */
+
+.geCScriptStatus {
+    margin-top: 6px;
+    padding: 4px 6px;
+    border-radius: 2px;
+    background: #f4f6f8;
+    color: #7a828e;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 11px;
+    min-height: 15px;
+}
+
+.geCScriptStatus.geCScriptOk {
+    background: #eaf6ee;
+    color: #256b3d;
+}
+
+.geCScriptStatus.geCScriptError {
+    background: #f8e7e7;
+    color: #a94442;
+}
+
+.geHtmlPreview {
+    margin-top: 10px;
+    padding: 4px;
+    border: 1px solid #dadce0;
+    border-radius: 2px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.geHtmlPreview canvas {
+    display: block;
+}
+
+.geDialogBackdrop .geDialogButtons {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 14px;
+}
+
+.geDialogBackdrop .geDialog p {
+    margin: 0px 0px 18px 0px;
+    color: #666666;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+/* -----------------------------------------------------------------------
+   Original / Visual Script sidebar tabs (restored from the classic editor)
+   ----------------------------------------------------------------------- */
+.geSidebarTabs {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid #cccccc;
+    background: #f5f5f5;
+}
+
+.geSidebarTab {
+    flex: 1;
+    box-sizing: border-box;
+    padding: 10px 4px;
+    text-align: center;
+    color: #666666;
+    background: transparent;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.15s ease;
+}
+
+.geSidebarTab:hover {
+    color: #333;
+    background: #eeeeee;
+}
+
+.geSidebarTab.active {
+    color: #ff6d5a;
+    border-bottom-color: #ff6d5a;
+    background: #ffffff;
+}
+
+.geSidebarTabPanel {
+    display: none;
+}
+
+.geSidebarTabPanel.active {
+    display: block;
+}
+
+.geSearchWrap {
+    padding: 1px 4px 5px;
+    border-bottom: 1px solid #e5e5e5;
+    background: #fbfbfb;
+}
+
+.geSidebarTabPanel .geSearchBox {
+    width: calc(100% - 12px);
+    height: 32px;
+    margin: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
+.geScratchpadPalette {
+    min-height: 42px;
+}
+
+.geSidebarDropActive {
+    outline: 2px dashed #ff6d5a;
+    outline-offset: -3px;
+    background: #fff8f6;
+}
+
+/* -----------------------------------------------------------------------
+   Visual Script Node Editor (canvas-native port of the classic overlay)
+   ----------------------------------------------------------------------- */
+.NodeContentEditorOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(3px);
+}
+
+.NodeContentEditorOverlay.open {
+    display: flex;
+}
+
+.vsCodeEditorPanel {
+    width: min(900px, calc(100vw - 12px));
+    height: min(650px, calc(100vh - 12px));
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: #222222;
+    background: #ffffff;
+    border: 1px solid #b9bec7;
+    border-radius: 9px;
+    box-shadow: 0 22px 65px rgba(0, 0, 0, 0.34);
+}
+
+.vsCodeEditorHeader {
+    min-height: 114px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #d8dce2;
+}
+
+.vsCodeEditorHeaderTitle {
+    flex: 0 0 77px;
+    color: #333333;
+    white-space: pre-line;
+    font: 700 16px/1.2 "SF Mono", Monaco, Consolas, "Courier New", monospace;
+}
+
+.vsCodeEditorTabs,
+.vsCodeEditorHeaderActions {
+    display: flex;
+    align-items: stretch;
+    gap: 5px;
+}
+
+.vsCodeEditorHeaderActions {
+    margin-left: auto;
+}
+
+.vsCodeEditorBtn {
+    min-height: 68px;
+    box-sizing: border-box;
+    padding: 8px 16px;
+    color: #333333;
+    background: #f1f1f1;
+    border: 1px solid #c8cdd4;
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: normal;
+    font: 700 14px/1.15 Arial, Helvetica, sans-serif;
+}
+
+.vsCodeEditorTabs .vsCodeEditorBtn {
+    min-width: 80px;
+}
+
+.vsCodeEditorTabs #tabBtnJs {
+    min-width: 112px;
+}
+
+.vsCodeEditorTabs #tabBtnDisplay {
+    width: 90px;
+}
+
+.vsCodeEditorHeaderActions .vsCodeEditorBtn {
+    width: 90px;
+}
+
+.vsCodeEditorHeaderActions #btnRunNode {
+    width: 74px;
+}
+
+.vsCodeEditorHeaderActions #btnSaveTemplateToServer {
+    width: 100px;
+}
+
+.vsCodeEditorBtn:hover:not(:disabled) {
+    background: #e7e7e7;
+    border-color: #aeb5bf;
+}
+
+.vsCodeEditorBtn.primary {
+    color: #ffffff;
+    background: #ff6d5a;
+    border-color: #ff6d5a;
+}
+
+.vsCodeEditorBtn.primary:hover:not(:disabled) {
+    background: #ff806d;
+    border-color: #ff806d;
+}
+
+.vsCodeEditorBtn:disabled {
+    cursor: wait;
+    opacity: 0.58;
+}
+
+.vsNameNodeBtn {
+    width: 120px;
+}
+
+.vsCodeEditorBody {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.vsNativeEditorArea {
+    position: absolute;
+    inset: 0;
+    display: none;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.vsNativeEditorGutter {
+    flex: 0 0 48px;
+    box-sizing: border-box;
+    padding: 12px 9px 40px 4px;
+    overflow: hidden;
+    color: #9aa3af;
+    background: #f5f7fa;
+    border-right: 1px solid #dfe3e8;
+    text-align: right;
+    white-space: pre;
+    user-select: none;
+    font: 12px/20px "SF Mono", Monaco, Consolas, monospace;
+}
+
+.vsNativeCodeTextarea {
+    flex: 1 1 auto;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 12px 14px 40px;
+    resize: none;
+    color: #20242b;
+    background: #ffffff;
+    border: 0;
+    outline: 0;
+    tab-size: 4;
+    white-space: pre;
+    overflow: auto;
+    font: 13px/20px "SF Mono", Monaco, "Cascadia Code", Consolas, monospace;
+}
+
+.vsHtmlDisplayArea {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    color: #222222;
+    background: #ffffff;
+}
+
+.vsVariablesHeader {
+    min-height: 48px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-sizing: border-box;
+    padding: 9px 15px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e2e6eb;
+}
+
+.vsVariablesHeader strong {
+    color: #2563eb;
+    font-size: 14px;
+}
+
+.vsVariablesHeader span {
+    color: #64748b;
+    font-size: 12px;
+}
+
+.vsAddVariableBtn {
+    margin-left: auto;
+    padding: 6px 12px;
+    color: #ffffff;
+    background: #2563eb;
+    border: 0;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.vsVariableColumns,
+.vsVariableRow {
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) 105px minmax(180px, 1.2fr) 34px;
+    gap: 8px;
+    align-items: center;
+}
+
+.vsVariableColumns {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    padding: 7px 15px;
+    color: #94a3b8;
+    background: #fbfcfe;
+    border-bottom: 1px solid #e5e7eb;
+    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.vsVariableRows {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-sizing: border-box;
+    padding: 8px 15px;
+    overflow: auto;
+}
+
+.vsVariableRow input,
+.vsVariableRow select,
+.vsConditionRow input,
+.vsConditionRow select,
+.vsConditionControls select {
+    width: 100%;
+    height: 31px;
+    box-sizing: border-box;
+    padding: 4px 7px;
+    color: #111827;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    outline: none;
+    font: 13px Arial, Helvetica, sans-serif;
+}
+
+.vsVariableRow input:focus,
+.vsVariableRow select:focus,
+.vsConditionRow input:focus,
+.vsConditionRow select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.vsVariableRow > :first-child,
+.vsJsonDisplayEditor {
+    font-family: "SF Mono", Monaco, Consolas, monospace;
+}
+
+.vsRemoveVariableBtn {
+    width: 34px;
+    height: 31px;
+    padding: 0;
+    color: #94a3b8;
+    background: #ffffff;
+    border: 1px solid #d5dce5;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 27px;
+}
+
+.vsRemoveVariableBtn:hover {
+    color: #dc2626;
+    border-color: #fca5a5;
+}
+
+.vsVariablesFooter {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    padding: 8px 15px;
+    color: #64748b;
+    background: #f8f9fa;
+    border-top: 1px solid #e2e6eb;
+    font-size: 11px;
+}
+
+.vsVariablesFooter b {
+    color: #2563eb;
+}
+
+.vsVariablesEmpty {
+    margin: 20px auto;
+    color: #94a3b8;
+    text-align: center;
+    font-size: 13px;
+}
+
+.vsOutputVariables,
+.vsConditionRows {
+    flex: 1 1 auto;
+    min-height: 0;
+    box-sizing: border-box;
+    padding: 12px 16px;
+    overflow: auto;
+}
+
+.vsOutputOption {
+    display: block;
+    padding: 9px 8px;
+    border-bottom: 1px solid #edf0f3;
+    font-size: 13px;
+}
+
+.vsOutputOption small {
+    color: #7b8491;
+}
+
+.vsConditionControls {
+    flex: 0 0 auto;
+    padding: 9px 16px 0;
+    color: #475569;
+    font-size: 12px;
+}
+
+.vsConditionControls select {
+    width: 76px;
+    margin: 0 4px;
+}
+
+.vsConditionRow {
+    display: grid;
+    grid-template-columns: 1fr 145px 1fr 34px;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.vsJsonDisplayEditor {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 12px;
+    padding: 12px;
+    resize: none;
+    color: #1f2937;
+    background: #fbfcfe;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    outline: none;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.vsNodeHtmlPreview {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 12px;
+    padding: 10px;
+    overflow: auto;
+    color: #222222;
+    background: #ffffff;
+    border: 1px solid #e2e6eb;
+    border-radius: 5px;
+}
+
+.vsCodeEditorHint {
+    min-height: 31px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    box-sizing: border-box;
+    padding: 6px 15px;
+    color: #7b8491;
+    background: #f8f9fa;
+    border-top: 1px solid #dfe3e8;
+    font-size: 11px;
+}
+
+.vsCodeEditorHint kbd {
+    padding: 1px 5px;
+    color: #8b8f96;
+    background: #e7e7e7;
+    border: 1px solid #d0d0d0;
+    border-radius: 3px;
+    font: inherit;
+}
+
+.vsRunStatus {
+    min-width: 0;
+    overflow: hidden;
+    color: #64748b;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vsRunStatus.success { color: #15803d; }
+.vsRunStatus.error { color: #dc2626; }
+
+.vsEditorCommandHint {
+    margin-left: auto;
+    color: #ff6d5a;
+    white-space: nowrap;
+}
+
+@media (max-width: 820px) {
+    .vsCodeEditorHeader {
+        min-height: 0;
+        align-items: stretch;
+        flex-wrap: wrap;
+        padding: 8px;
+    }
+    .vsCodeEditorHeaderTitle { display: none; }
+    .vsCodeEditorTabs { flex: 1 1 auto; }
+    .vsCodeEditorTabs .vsCodeEditorBtn { min-height: 42px; flex: 1; }
+    .vsNameNodeBtn { min-height: 42px; flex: 1 1 120px; }
+    .vsCodeEditorHeaderActions { width: 100%; }
+    .vsCodeEditorHeaderActions .vsCodeEditorBtn { min-height: 42px; flex: 1; width: auto !important; }
+    .vsVariableColumns,
+    .vsVariableRow { grid-template-columns: minmax(100px, 1fr) 88px minmax(120px, 1.2fr) 34px; }
+    .vsEditorCommandHint { display: none; }
+}
+
+/* Edit Media: parallax layer stack -------------------------------------- */
+
+.geMediaDialog {
+    box-sizing: border-box;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto !important;
+}
+
+.geMediaDialog .geImagePreview {
+    height: 210px;
+}
+
+.geMediaLayers {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e1e5ea;
+}
+
+.geMediaLayersHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.geMediaLayersTitle {
+    min-width: 0;
+    color: #333333;
+    font-size: 12px;
+}
+
+.geMediaLayersTitle strong {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 13px;
+}
+
+.geMediaLayersTitle span {
+    display: block;
+    color: #747d89;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.geMediaLayerActions,
+.geMediaLayerCardButtons {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 5px;
+}
+
+.geMediaLayerList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 310px;
+    overflow-y: auto;
+    padding-right: 3px;
+}
+
+.geMediaLayerEmpty {
+    padding: 12px;
+    border: 1px dashed #c9d0d9;
+    border-radius: 4px;
+    color: #7a828e;
+    background: #fafbfc;
+    text-align: center;
+    font-size: 11px;
+}
+
+.geMediaLayerCard {
+    padding: 8px;
+    border: 1px solid #d8dde4;
+    border-radius: 4px;
+    background: #f8fafc;
+}
+
+.geMediaLayerCardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+    color: #3c4653;
+    font-size: 11px;
+}
+
+.geMediaLayerMiniBtn {
+    min-width: 28px;
+    padding-left: 7px;
+    padding-right: 7px;
+}
+
+.geMediaLayerSourceRow {
+    display: flex;
+    align-items: stretch;
+    gap: 5px;
+    min-width: 0;
+}
+
+.geMediaLayerSourceRow .geServerPathInput {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 27px;
+    margin: 0;
+}
+
+.geMediaLayerReplaceBtn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.geMediaLayerControls {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 7px;
+}
+
+.geMediaLayerControls label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    color: #66717f;
+    font-size: 10px;
+}
+
+.geMediaLayerControls input {
+    box-sizing: border-box;
+    width: 100%;
+    height: 25px;
+    padding: 1px 4px;
+    border: 1px solid #d0d5dc;
+    border-radius: 2px;
+    background: #ffffff;
+    font-size: 11px;
+}
+
+.geMediaDialogButtons {
+    flex-wrap: wrap;
+}
+
+@media (max-width: 700px) {
+    .geMediaLayersHeader {
+        flex-direction: column;
+    }
+
+    .geMediaLayerControls {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

@@ -1,0 +1,21 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<script src="../../web/js/RichText.js"></script>
+<script src="../../web/js/Stencils.js"></script>
+<script src="../../ref/CanvasPaint.js"></script>
+<script src="scene.js"></script>
+</head><body><script>
+window.render = function() {
+  return Promise.all(['basic', 'flowchart', 'arrows'].map(function(n) {
+    return fetch('../../web/stencils/' + n + '.xml').then(function(r) { return r.text(); })
+      .then(function(xml) { PixelStencils.parse(xml, 'mxgraph.' + n); });
+  })).then(function() {
+    return sceneViews.map(function(view) {
+      var painter = new PixelScenePainter();
+      painter.sync(makeScene());
+      var canvas = document.createElement('canvas');
+      painter.render(canvas, view);
+      return canvas.toDataURL('image/png');
+    });
+  });
+};
+</script></body></html>
