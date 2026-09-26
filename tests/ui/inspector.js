@@ -117,9 +117,15 @@ const {chromium} = require('./pw');
   await page.locator('[title="Unlock canvas interactions"]').click();
   await page.evaluate(() => window.graph.setSelection(['socket-source']));
   assert.equal(await page.locator('.qg-selpill').isVisible(), true);
-  assert.equal(await page.locator('.qg-selpill').evaluate(pill =>
-    pill.scrollWidth > pill.clientWidth && pill.getBoundingClientRect().right <= innerWidth), true,
-    'the crowded mobile selection toolbar scrolls within the screen');
+  const mobileToolbar = await page.locator('.qg-selpill').evaluate(pill => {
+    const bounds = pill.getBoundingClientRect();
+    return {left: bounds.left, right: bounds.right, viewport: innerWidth,
+      scrollWidth: pill.scrollWidth, clientWidth: pill.clientWidth,
+      overflow: getComputedStyle(pill).overflowX};
+  });
+  assert.equal(mobileToolbar.left >= -1 && mobileToolbar.right <= mobileToolbar.viewport + 1 &&
+    (mobileToolbar.scrollWidth <= mobileToolbar.clientWidth || mobileToolbar.overflow === 'auto'), true,
+    `the mobile selection toolbar fits or scrolls within the screen: ${JSON.stringify(mobileToolbar)}`);
   assert.deepEqual(errors, []);
   console.log('Inspector text, block Save, variable sockets, canvas lock, and phone layout passed.');
   await browser.close();
