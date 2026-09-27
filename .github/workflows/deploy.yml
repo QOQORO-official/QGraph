@@ -53,6 +53,7 @@ jobs:
           for i in $(seq 1 20); do curl -fs http://localhost:8123/web/index.html >/dev/null && break; sleep 0.5; done
           node tests/ui/inspector.js
           node tests/ui/text-table.js
+          node tests/ui/ctrl-marquee.js
           node tests/ui/golden.js
 
       - name: Assemble the static site

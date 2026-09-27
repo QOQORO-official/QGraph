@@ -94,6 +94,7 @@ type
     frame*: Rect
     originals*: OrderedTable[string, Val]
     additive*: bool
+    ctrlSelect*: bool
     originalSelection*: seq[string]
     originalEdges: OrderedTable[string, Val]
     explicitEdges: OrderedTable[string, ExplicitEdge]

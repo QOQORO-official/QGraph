@@ -466,10 +466,17 @@ proc bindEvents(ui: EditorUi) =
 
   document.on("pointerdown", proc(e: Event) =
     let target = e.target
+    if ui.layout != lmPhone and not ui.contextMenu.isNil and not ui.contextMenu.hidden and
+        target.closest(".qg-context").isNil and not target.closest(".qg-stage").isNil:
+      # Dismissing the menu must not also start a canvas gesture underneath it.
+      ui.hideContextMenu()
+      e.preventDefault()
+      e.stopPropagation()
+      return
     if target.closest(".qg-table-axis-menu").isNil and target.closest(".qg-table-axis-grip").isNil:
       ui.closeTableAxisMenu()
     if target.closest(".qg-menu").isNil and target.closest("[aria-haspopup]").isNil: ui.closeMenus()
-    if target.closest(".qg-context").isNil: ui.hideContextMenu())
+    if target.closest(".qg-context").isNil: ui.hideContextMenu(), capture = true)
 
   document.on("keydown", proc(e: Event) =
     if e.key == "Escape": ui.closeTableAxisMenu()

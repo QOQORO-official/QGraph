@@ -1046,6 +1046,16 @@ proc pointerDown*(g: Graph, ev: PointerEv): int =
   let before = g.snapshot()
   let kind = if hit.found: hit.control.kind else: ""
 
+  if (ev.ctrl or ev.meta) and kind.len == 0:
+    # Ctrl-drag selects objects even when the gesture starts on a node.
+    # Keep explicit resize/connection handles available when hit directly.
+    let startItem = g.hitTest(world)
+    g.action = Action(kind: "marquee", startWorld: world, hasStartWorld: true,
+      current: world, additive: true, ctrlSelect: true, originalSelection: g.selection,
+      itemId: if startItem == nil: "" else: idOf(startItem))
+    g.drawOverlay()
+    return FlagCapture or FlagPrevent
+
   if kind == "port":
     g.action = Action(kind: "connect", sourceId: idOf(hit.item), sourceSide: hit.control.side,
       sourceAnchor: clone(if hit.control.anchorSpec != nil: hit.control.anchorSpec
@@ -1267,11 +1277,18 @@ proc pointerMove*(g: Graph, ev: PointerEv): int =
     g.drawOverlay()
   of "marquee":
     action.current = world
+    if action.ctrlSelect and hypot(world.x - action.startWorld.x,
+                                  world.y - action.startWorld.y) > 4 / g.zoom:
+      action.moved = true
     g.drawOverlay()
   else: discard
   FlagPrevent
 
 proc finishMarquee(g: Graph, action: Action) =
+  if action.ctrlSelect and not action.moved:
+    if action.itemId.len > 0: g.toggleSelection(action.itemId)
+    else: g.setSelection(action.originalSelection)
+    return
   let x = min(action.startWorld.x, action.current.x)
   let y = min(action.startWorld.y, action.current.y)
   let b = rect(x, y, abs(action.startWorld.x - action.current.x), abs(action.startWorld.y - action.current.y))
@@ -1284,16 +1301,22 @@ proc finishMarquee(g: Graph, action: Action) =
         let arc = circularArc(item, g.byId)
         points = if arc.valid: arc.samples else: edgePoints(item, g.byId)
       else: points = edgePoints(item, g.byId)
-      var enclosed = points.len > 0
-      for p in points:
-        if not (p.x >= b.x and p.y >= b.y and p.x <= b.x + b.width and p.y <= b.y + b.height):
-          enclosed = false
-          break
-      if enclosed and not ids.contains(idOf(item)): ids.add idOf(item)
+      var matched = false
+      if action.ctrlSelect:
+        matched = intersects(itemBounds(item, g.byId), b)
+      else:
+        matched = points.len > 0
+        for p in points:
+          if not (p.x >= b.x and p.y >= b.y and p.x <= b.x + b.width and p.y <= b.y + b.height):
+            matched = false
+            break
+      if matched and not ids.contains(idOf(item)): ids.add idOf(item)
     elif item != nil:
       let ib = itemBounds(item, g.byId)
-      if ib.x >= b.x and ib.y >= b.y and ib.x + ib.width <= b.x + b.width and
-          ib.y + ib.height <= b.y + b.height and not ids.contains(idOf(item)):
+      let matched = if action.ctrlSelect: intersects(ib, b)
+                    else: ib.x >= b.x and ib.y >= b.y and
+                          ib.x + ib.width <= b.x + b.width and ib.y + ib.height <= b.y + b.height
+      if matched and not ids.contains(idOf(item)):
         ids.add idOf(item)
   g.setSelection(ids)
 
@@ -1302,7 +1325,8 @@ proc pointerUp*(g: Graph, ev: PointerEv): int =
   g.stopDragAutoScroll()
   let action = g.action
 
-  if action.kind == "select" or (action.kind == "move" and not action.moved):
+  if action.kind == "select" or (action.kind == "move" and not action.moved) or
+      (action.kind == "marquee" and action.ctrlSelect and not action.moved):
     let linkHit = g.hitTest(g.eventWorld(ev.screen))
     let href = g.getClickableLinkForCell(linkHit, ev.screen, ev.ctrl or ev.meta)
     if href.len > 0:
