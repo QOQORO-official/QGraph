@@ -1050,6 +1050,13 @@ proc pointerDown*(g: Graph, ev: PointerEv): int =
     # Ctrl-drag selects objects even when the gesture starts on a node.
     # Keep explicit resize/connection handles available when hit directly.
     let startItem = g.hitTest(world)
+    if startItem != nil and startItem.eqs("shape", "table"):
+      let (cellHit, cell) = g.tableCellAtWorld(startItem, world)
+      if cellHit:
+        discard g.selectTableCellBox(startItem, cell)
+        g.action = Action(kind: "tableCellRange", itemId: idOf(startItem),
+          startWorld: world, hasStartWorld: true, current: world)
+        return FlagCapture or FlagPrevent
     g.action = Action(kind: "marquee", startWorld: world, hasStartWorld: true,
       current: world, additive: true, ctrlSelect: true, originalSelection: g.selection,
       itemId: if startItem == nil: "" else: idOf(startItem))
@@ -1125,7 +1132,8 @@ proc pointerDown*(g: Graph, ev: PointerEv): int =
       (cellHit, cellBox) = g.tableCellAtWorld(hitItem, world)
     if cellHit:
       discard g.selectTableCellBox(hitItem, cellBox, ev.shift)
-      g.action = Action(kind: "select")
+      g.action = Action(kind: "tableCellRange", itemId: idOf(hitItem),
+        startWorld: world, hasStartWorld: true, current: world)
     elif hitItem != nil:
       if g.tableSelection.active and g.tableSelection.nodeId == idOf(hitItem):
         discard g.clearTableCellSelection(false)
@@ -1281,6 +1289,21 @@ proc pointerMove*(g: Graph, ev: PointerEv): int =
                                   world.y - action.startWorld.y) > 4 / g.zoom:
       action.moved = true
     g.drawOverlay()
+  of "tableCellRange":
+    let table = g.byId.getOrDefault(action.itemId, nil)
+    if table != nil:
+      let grid = tableGrid(table)
+      let local = rotatePoint(world, nodeCenter(table), -rot(table))
+      let inside = pt(clamp(local.x, nodeX(table) + 0.01,
+                            nodeX(table) + nodeW(table) - 0.01),
+                      clamp(local.y, grid.contentY + 0.01,
+                            grid.contentBottom - 0.01))
+      let (found, cell) = g.tableCellAtWorld(table,
+        rotatePoint(inside, nodeCenter(table), rot(table)))
+      if found and g.tableSelection.active and
+          (cell.row + cell.rowspan - 1 != g.tableSelection.endRow or
+           cell.column + cell.colspan - 1 != g.tableSelection.endColumn):
+        discard g.selectTableCellBox(table, cell, true)
   else: discard
   FlagPrevent
 
