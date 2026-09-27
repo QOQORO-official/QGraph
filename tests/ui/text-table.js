@@ -55,6 +55,29 @@ const {chromium} = require('./pw');
   const afterColumn = await page.evaluate(() => window.graph.getSelection()[0].columns);
   assert.equal(afterColumn, initial.columns + 1, 'the column action inserts a column directly');
   assert.equal(dialogs, 0, 'table commands never open the Link URL prompt');
+
+  await page.mouse.move(cell.x, cell.y);
+  const columnGrip = page.locator('.qg-table-axis-grip.is-column');
+  await columnGrip.waitFor({state: 'visible'});
+  await columnGrip.click();
+  const axisMenu = page.locator('.qg-table-axis-menu');
+  assert.equal(await axisMenu.isVisible(), true, 'hover grip opens the column menu');
+  for (const label of ['Header column', 'Color', 'Insert left', 'Insert right',
+    'Duplicate', 'Clear contents', 'Delete']) {
+    assert.equal(await axisMenu.locator('.qg-table-axis-item', {hasText: label}).count(), 1,
+      `${label} is available in the column menu`);
+  }
+  await axisMenu.locator('.qg-table-axis-item', {hasText: 'Insert right'}).click();
+  const afterGrip = await page.evaluate(() => window.graph.getSelection()[0].columns);
+  assert.equal(afterGrip, initial.columns + 2, 'column grip inserts through the table model');
+  await page.mouse.move(cell.x, cell.y);
+  const rowGrip = page.locator('.qg-table-axis-grip.is-row');
+  await rowGrip.waitFor({state: 'visible'});
+  await rowGrip.click();
+  assert.equal(await axisMenu.locator('.qg-table-axis-item', {hasText: 'Insert below'}).count(), 1,
+    'row grip opens the row commands');
+  await axisMenu.locator('.qg-table-axis-item', {hasText: 'Insert below'}).click();
+  assert.equal(await page.evaluate(() => window.graph.getSelection()[0].rows), initial.rows + 2);
   assert.deepEqual(errors, []);
   console.log('Multiline text and table context actions passed.');
   await browser.close();

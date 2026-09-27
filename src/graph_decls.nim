@@ -109,6 +109,8 @@ proc insertTableRow*(g: Graph, table: Val, index0: Val): bool
 proc deleteTableRow*(g: Graph, table: Val, index0: Val): bool
 proc insertTableColumn*(g: Graph, table: Val, index0: Val): bool
 proc deleteTableColumn*(g: Graph, table: Val, index0: Val): bool
+proc tableAxisAction*(g: Graph, table: Val, column: bool, at: int,
+                      action: string, value = ""): bool
 proc mergeTableCells*(g: Graph, table: Val, sr, sc, er, ec: Val): bool
 proc splitTableCell*(g: Graph, table: Val, row, column: float64): bool
 proc swapTableRows(g: Graph, node: Val, first, second: int, before0: string): bool

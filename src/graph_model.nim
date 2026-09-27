@@ -1660,6 +1660,65 @@ proc deleteTableColumn*(g: Graph, table: Val, index0: Val): bool =
   g.render()
   true
 
+proc tableAxisAction*(g: Graph, table: Val, column: bool, at: int,
+                      action: string, value = ""): bool =
+  ## QNote-style row/column commands. Mutations across an axis form one undo step.
+  let node = g.resolveTable(table)
+  if node == nil: return false
+  let rows = int(max(1.0, node.nor("rows", 1)))
+  let columns = int(max(1.0, node.nor("columns", 1)))
+  let count = if column: columns else: rows
+  if at < 0 or at >= count: return false
+  if action == "insert-before" or action == "insert-after" or action == "delete":
+    let index = at + (if action == "insert-after": 1 else: 0)
+    if column:
+      return if action == "delete": g.deleteTableColumn(node, jnum(at))
+             else: g.insertTableColumn(node, jnum(index))
+    return if action == "delete": g.deleteTableRow(node, jnum(at))
+           else: g.insertTableRow(node, jnum(index))
+  if action == "duplicate":
+    # Insertion remaps existing cells and track weights before copying the axis.
+    let source = clone(node["cells"])
+    let track = if column: "columnWeights" else: "rowWeights"
+    let weights = clone(node.get(track))
+    if not (if column: g.insertTableColumn(node, jnum(at + 1))
+            else: g.insertTableRow(node, jnum(at + 1))): return false
+    if not node["cells"].isObj: node["cells"] = newObj()
+    for i in 0 ..< (if column: rows else: columns):
+      let fromKey = if column: $i & "," & $at else: $at & "," & $i
+      let toKey = if column: $i & "," & $(at + 1) else: $(at + 1) & "," & $i
+      if source.isObj and source.hasKey(fromKey): node["cells"].put(toKey, clone(source.get(fromKey)))
+    let newWeights = node.get(track)
+    if weights.isArr and at < weights.len and newWeights.isArr and at + 1 < newWeights.len:
+      newWeights[at + 1] = clone(weights[at])
+    g.rendererUpsert([node], true)
+    g.render()
+    return true
+  if action notin ["header", "color", "clear"]: return false
+  let before = g.snapshot()
+  if not node["cells"].isObj: node["cells"] = newObj()
+  for i in 0 ..< (if column: rows else: columns):
+    let row = if column: i else: at
+    let col = if column: at else: i
+    let key = $row & "," & $col
+    let existing = node["cells"].get(key)
+    let cell = if existing.isObj: clone(existing)
+               elif existing.isStr: obj(("text", existing)) else: newObj()
+    case action
+    of "header":
+      cell["header"] = jbool(value == "true")
+      if not truthy(node["headerFill"]): node["headerFill"] = jstr("#eef2f7")
+    of "color":
+      if value.len == 0: cell.del("fill") else: cell["fill"] = jstr(value)
+    of "clear":
+      for property in ["text", "richText", "html", "link"]: cell.remove(property)
+    else: discard
+    node["cells"].put(key, cell)
+  g.rendererUpsert([node], true)
+  g.commit(before, "Table " & action)
+  g.render()
+  true
+
 proc mergeTableCells*(g: Graph, table: Val, sr, sc, er, ec: Val): bool =
   let node = g.resolveTable(table)
   if node == nil: return false

@@ -92,6 +92,11 @@ type
     script: ScriptRuntime
     layersCard, outlineCard: Node
     contextMenu: Node
+    tableRowGrip, tableColumnGrip, tableAxisMenu: Node
+    tableAxisId: string
+    tableAxisIndex: int
+    tableAxisColumn: bool
+    tableGripRowIndex, tableGripColumnIndex: int
     contextMenuBaseEntries: seq[string]
     contextPoint*: Val
     menuPopups: seq[Node]
@@ -212,6 +217,9 @@ proc runScript*(ui: EditorUi, entryIds: seq[string] = @[])
 proc stopScript*(ui: EditorUi)
 proc insertScriptExample(ui: EditorUi)
 proc clearConsole(ui: EditorUi)
+proc buildTableAxisUi(ui: EditorUi)
+proc updateTableAxisGrips(ui: EditorUi, clientX, clientY: float64)
+proc closeTableAxisMenu(ui: EditorUi)
 proc buildScriptPanel(ui: EditorUi)
 proc installScript(ui: EditorUi)
 proc ensureWorker(ui: EditorUi)
@@ -220,6 +228,7 @@ include editor_doc
 include ui_components
 include ui_layout
 include ui_shell
+include ui_table
 include ui_format
 include ui_windows
 include ui_dialogs

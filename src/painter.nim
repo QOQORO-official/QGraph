@@ -1191,7 +1191,9 @@ proc drawTableCells(p: ScenePainter, ctx: Ctx, node: Val) =
         cell = o
       let content = cell["text"]
       let model = if cell.tr("richText"): cell["richText"] else: nil
-      let header = (node.tr("headerRow") and r == 0) or (node.tr("headerColumn") and c == 0)
+      let header = if not cell.nul("header"): cell.tr("header")
+                   else: (node.tr("headerRow") and r == 0) or
+                         (node.tr("headerColumn") and c == 0)
       let ov = newObj()
       ov["color"] = orV(cell["textColor"], orV(node["textColor"], jstr("#172033")))
       ov["fontWeight"] = if cell.nul("fontWeight"):

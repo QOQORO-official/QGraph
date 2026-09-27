@@ -427,17 +427,23 @@ proc createUi(ui: EditorUi) =
   ui.buildSelectionPill()
   ui.buildTabbar()
   ui.buildContextMenu()
+  ui.buildTableAxisUi()
 
 proc bindEvents(ui: EditorUi) =
   let g = ui.graph
   g.on("stats", proc(stats: Val) = ui.updateStatus(stats))
-  g.on("zoomchange", proc(d: Val) = ui.updateStatus())
+  g.on("zoomchange", proc(d: Val) =
+    ui.updateStatus()
+    ui.updateTableAxisGrips(-1, -1))
   g.on("selectionchange", proc(selection: Val) =
     let n = if selection == nil: 0 else: selection.len
     ui.statusLeft.text = if n > 0: $n & " selected" else: "Ready"
     ui.container.toggleClass("has-selection", n > 0)
+    ui.updateTableAxisGrips(-1, -1)
     ui.updateFormat())
-  g.on("diagramchange", proc(d: Val) = ui.updateFormat())
+  g.on("diagramchange", proc(d: Val) =
+    ui.updateFormat()
+    ui.updateTableAxisGrips(-1, -1))
   g.on("toast", proc(d: Val) = ui.toast(valStr(d)))
   g.on("contextmenu", proc(d: Val) = ui.showContextMenu(d))
   ui.installScript()
@@ -460,10 +466,13 @@ proc bindEvents(ui: EditorUi) =
 
   document.on("pointerdown", proc(e: Event) =
     let target = e.target
+    if target.closest(".qg-table-axis-menu").isNil and target.closest(".qg-table-axis-grip").isNil:
+      ui.closeTableAxisMenu()
     if target.closest(".qg-menu").isNil and target.closest("[aria-haspopup]").isNil: ui.closeMenus()
     if target.closest(".qg-context").isNil: ui.hideContextMenu())
 
   document.on("keydown", proc(e: Event) =
+    if e.key == "Escape": ui.closeTableAxisMenu()
     if e.key == "Escape" and ui.sheetOpen:
       ui.closeSheet()
       return
