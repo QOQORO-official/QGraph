@@ -59,6 +59,7 @@ const {chromium} = require('./pw');
   }));
   assert.deepEqual(afterDismiss, beforeDismiss,
     'dismissing the context menu does not pan or change canvas selection');
+  await page.mouse.click(empty.x, empty.y);
   // Selection must not resize the scroll surface, even momentarily.
   await page.evaluate(() => {
     window.selectionSpacerChanges = 0;
