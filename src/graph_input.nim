@@ -1793,7 +1793,9 @@ proc doubleClick*(g: Graph, ev: PointerEv): int =
       return 0
   if not nullish(hit["richText"]):
     let (ok, index, box) = g.richBlockAt(hit, world)
-    if ok:
+    # Paragraphs and headings belong to one text object. Only list entries
+    # need a separate editor for the clicked item.
+    if ok and hit["richText"]["blocks"][index].st("type") in ["ul", "ol"]:
       g.startTextEdit(hit, EditScope(kind: "rich", index: index, box: box))
       return FlagPrevent
   g.startTextEdit(hit)

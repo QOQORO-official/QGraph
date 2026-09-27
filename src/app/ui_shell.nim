@@ -54,6 +54,16 @@ proc createShell(ui: EditorUi) =
 
 # ------------------------------------------------------------------ popups --
 
+proc bindMenuAction(ui: EditorUi, item: Node, name: string, handler: proc()) =
+  ## Capture one action per button; loop locals are reused by Nim closures.
+  item.on("click", proc(e: Event) =
+    e.stopPropagation()
+    ui.closeMenus()
+    ui.hideContextMenu()
+    if ui.layout == lmPhone: ui.closeSheet()
+    if name.len > 0: ui.run(name)
+    elif handler != nil: handler())
+
 proc addMenuItems(ui: EditorUi, popup: Node, list: openArray[MenuEntry]): Node {.discardable.} =
   ## Fills a menu with action names, separators or literal entries.
   var syncs = ui.popupSyncs.getOrDefault(popup.id, @[])
@@ -109,13 +119,7 @@ proc addMenuItems(ui: EditorUi, popup: Node, list: openArray[MenuEntry]): Node {
         item.appendChild(keys)
       let name = if action != nil: action.name else: ""
       let handler = entry.handler
-      item.on("click", proc(e: Event) =
-        e.stopPropagation()
-        ui.closeMenus()
-        ui.hideContextMenu()
-        if ui.layout == lmPhone: ui.closeSheet()
-        if name.len > 0: ui.run(name)
-        elif handler != nil: handler())
+      ui.bindMenuAction(item, name, handler)
       popup.appendChild(item)
   ui.popupSyncs[popup.id] = syncs
   popup
