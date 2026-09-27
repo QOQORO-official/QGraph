@@ -1907,6 +1907,7 @@ button {
     background: #ffffff;
     scrollbar-color: var(--border-strong) transparent;
     touch-action: none;
+    overflow-anchor: none;
 }
 
 .pixel-world-spacer {

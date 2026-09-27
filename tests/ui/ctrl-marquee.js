@@ -59,6 +59,29 @@ const {chromium} = require('./pw');
   }));
   assert.deepEqual(afterDismiss, beforeDismiss,
     'dismissing the context menu does not pan or change canvas selection');
+  // Selection must not resize the scroll surface, even momentarily.
+  await page.evaluate(() => {
+    window.selectionSpacerChanges = 0;
+    window.selectionObserver = new MutationObserver(records => {
+      window.selectionSpacerChanges += records.length;
+    });
+    window.selectionObserver.observe(document.querySelector('.pixel-world-spacer'),
+      {attributes: true, attributeFilter: ['style']});
+  });
+  for (let i = 0; i < 3; i++) {
+    await page.mouse.click(start.x, start.y);
+    assert.deepEqual(await page.evaluate(() => window.graph.getSelection().map(item => item.id)), ['first']);
+    await page.mouse.click(empty.x, empty.y);
+    assert.equal(await page.evaluate(() => window.graph.getSelection().length), 0);
+  }
+  const stable = await page.evaluate(() => {
+    window.selectionObserver.disconnect();
+    return {changes: window.selectionSpacerChanges, x: window.graph.container.scrollLeft,
+      y: window.graph.container.scrollTop};
+  });
+  assert.equal(stable.changes, 0, 'selecting and deselecting never resizes the canvas surface');
+  assert.equal(stable.x, beforeDismiss.x);
+  assert.equal(stable.y, beforeDismiss.y);
   assert.deepEqual(errors, []);
   console.log('Ctrl-drag selection and stable context-menu dismissal passed.');
   await browser.close();

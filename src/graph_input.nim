@@ -1505,8 +1505,15 @@ proc pointerUp*(g: Graph, ev: PointerEv): int =
   else: discard
 
   g.action = nil
-  g.updateWorldSize()
-  g.render()
+  let selectionOnly = action.kind in ["select", "marquee", "tableCellRange"] or
+    (action.kind in ["move", "edgeMove", "tableRowSwap"] and not action.moved)
+  if selectionOnly:
+    # Selection changes only the overlay. Resizing the scroll surface here
+    # can clamp its offsets and toggle scrollbars even though nothing moved.
+    g.drawOverlay()
+  else:
+    g.updateWorldSize()
+    g.render()
   FlagRelease or FlagPrevent
 
 # ------------------------------------------------------------- links --
