@@ -11,7 +11,7 @@ import std/[tables, sets, strutils, math, algorithm]
 import ../jsval, ../host, ../geometry, ../graph, ../canvas, ../painter, ../richtext
 import ../web/qweb
 import jsutil, media, view, overlay, data, legacy, mxformat, svgconvert, stencilxml, shapesvg,
-  richhtml, icons, renderer
+  richhtml, icons, renderer, xml
 
 type
   Predicate = proc(item: Val): bool
@@ -78,6 +78,9 @@ type
     runButton, stopButton, topRun, inspectorRun: Node
     inspectorBody: Node
     codeTimer: int32
+    blockGrid, blockSearch: Node
+      ## The Script tab's block palette, rebuilt once when plugin blocks
+      ## (script.nim's loadPlugins) arrive after the initial page load.
 
   EditorUi* = ref object
     container*: Node
@@ -265,6 +268,11 @@ proc newEditorUi*(host: Node = body): EditorUi =
   ui.editor.newDocument()
   ui.updateFormat()
   ui.updateStatus()
+
+  # Plugin blocks (script.nim): a silent no-op wherever there is no
+  # /api/plugins route (standalone QGraph, or no plugin server yet) --
+  # only reflows the Script tab's block palette when any actually load.
+  ui.loadPlugins()
 
   # Stencil libraries arrive asynchronously and fill in their palettes.
   ui.graph.on("stencilsloaded", proc(d: Val) = ui.addStencilPalettes())

@@ -272,17 +272,26 @@ proc buildSidebar(ui: EditorUi)
 proc buildFormat(ui: EditorUi)
 proc buildWindows(ui: EditorUi)
 
+proc setDocumentName*(ui: EditorUi, name: string) =
+  ## The name in the topbar and the default download name. A host page (the
+  ## vault workspace) sets it to the file it opened, since it loads diagrams
+  ## straight into the graph rather than through File > Open.
+  var clean = jsTrim(name)
+  if clean.len == 0: clean = "Untitled diagram"
+  if not ui.docName.isNil: ui.docName.value = clean
+  ui.editor.filename = clean & ".json"
+
+proc documentName*(ui: EditorUi): string =
+  if ui.docName.isNil: "" else: ui.docName.value
+
 proc buildTopbar(ui: EditorUi) =
   let left = div0("qg-topbar-start")
   let menuButton = iconButton("menu", "Menu", "qg-only-phone")
   menuButton.on("click", proc(e: Event) = ui.openPanel("menu"))
   left.appendChild(menuButton)
   let brand = div0("qg-brand")
-  let mark = div0("qg-brand-mark")
-  mark.html = iconMarkup("logo", 18)
-  brand.appendChild(mark)
   let word = el("span", "qg-brand-name")
-  word.text = "QGraph"
+  word.text = "Qochart"
   brand.appendChild(word)
   left.appendChild(brand)
   ui.docName = el("input", "qg-docname")
@@ -290,11 +299,7 @@ proc buildTopbar(ui: EditorUi) =
   ui.docName.setAttribute("aria-label", "Document name")
   ui.docName.setProp("spellcheck", false)
   ui.docName.value = "Untitled diagram"
-  ui.docName.on("change", proc(e: Event) =
-    var name = jsTrim(ui.docName.value)
-    if name.len == 0: name = "Untitled diagram"
-    ui.docName.value = name
-    ui.editor.filename = name & ".json")
+  ui.docName.on("change", proc(e: Event) = ui.setDocumentName(ui.docName.value))
   ui.docName.on("keydown", proc(e: Event) =
     if e.key == "Enter": ui.docName.blur()
     e.stopPropagation())

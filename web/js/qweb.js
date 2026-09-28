@@ -581,6 +581,9 @@
     Host.prototype.imports = function(memory) {
         var host = this;
         var env = {
+            // Web boot probe only. Desktop packaging renames this import and
+            // requires the native host's separate, per-build grant adapter.
+            bindweb_js_domain_guard: function(ptr, len) { return ptr === 0 && len === 0 ? 1 : 0; },
             // -- numbers, time, strings, measurement ------------------------
             qg_parse_num: function(ptr, len) { return Number(host.decode(ptr, len)); },
             qg_fmt_num: function(x, dst, cap) {
@@ -853,6 +856,22 @@
                 }).then(function(body) {
                     if (mode === 3) host.complete(id, 0, null, host.handle(body));
                     else host.complete(id, 0, new Uint8Array(body), 0);
+                }).catch(function(error) {
+                    host.complete(id, 1, encoder.encode(String(error && error.message || error)), 0);
+                });
+            },
+            qw_fetch_post: function(id, urlPtr, urlLen, bodyPtr, bodyLen, ctPtr, ctLen) {
+                var url = host.decode(urlPtr, urlLen);
+                var body = host.decode(bodyPtr, bodyLen);
+                var contentType = host.decode(ctPtr, ctLen);
+                fetch(url, { method: 'POST', credentials: 'same-origin',
+                    headers: { 'Content-Type': contentType }, body: body }).then(function(response) {
+                    return response.arrayBuffer().then(function(buf) {
+                        return { ok: response.ok, status: response.status, buf: buf };
+                    });
+                }).then(function(r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + new TextDecoder().decode(r.buf));
+                    host.complete(id, 0, new Uint8Array(r.buf), 0);
                 }).catch(function(error) {
                     host.complete(id, 1, encoder.encode(String(error && error.message || error)), 0);
                 });

@@ -76,11 +76,8 @@ echo ">> wasm-ld: linking $OUT"
   --initial-memory=$((32*1024*1024)) --max-memory=$((2048*1024*1024)) \
   -o "$OUT" "$NC"/*.o
 
-# --- 4. optional size pass ------------------------------------------------
-if command -v wasm-opt >/dev/null 2>&1; then
-  echo ">> wasm-opt: -O3"
-  wasm-opt -O3 --enable-bulk-memory "$OUT" -o "$OUT" || echo "   (wasm-opt skipped)"
-fi
+# LLVM's compile/link optimizations above are the complete build pipeline.
+# Do not automatically introduce Binaryen/wasm-opt based on the user's PATH.
 
 bytes=$(wc -c < "$OUT")
 echo ">> done: $OUT ($bytes bytes)"

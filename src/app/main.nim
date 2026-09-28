@@ -15,12 +15,18 @@ import view, editorui, worker, mxformat, data
   codegenDecl: "__attribute__((export_name(\"$2\"))) $1 $2$3".}
 
 proc NimMain() {.importc, cdecl.}
+proc bindweb_js_domain_guard(p: pointer, len: int32): int32 {.importc, cdecl.}
 
 var started = false
 var ui: EditorUi
 
 proc boot() =
   if not started:
+    # Keep the same guard import as BindWeb/QNote in the linked module.
+    # Desktop packaging adds its native-host check without rewriting imports
+    # or function indices. The ordinary web host acknowledges this boot probe.
+    if bindweb_js_domain_guard(nil, 0) != 1:
+      {.emit: "__builtin_trap();".}
     started = true
     NimMain()
 
@@ -97,6 +103,12 @@ proc automation(path: string, op: int, argsJson: string): ApiReply =
     of "graph":
       if parts.len == 2: return graphApi(parts[1], op, args)
     of "editorUi":
+      if parts.len == 2 and parts[1] == "setDocumentName":
+        if op == 0: return fn()
+        ui.setDocumentName(valStrOr(arg(args, 0)))
+        return value(nil)
+      if parts.len == 2 and parts[1] == "documentName" and op == 0:
+        return value(jstr(ui.documentName))
       if parts.len == 2:
         case parts[1]
         of "editor", "actions": return obj()

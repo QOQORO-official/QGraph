@@ -497,15 +497,18 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
   let layersList = div0("qg-media-layer-list")
   layersSection.appendChild(layersList)
 
-  proc layerNumberInput(value, min, max, step: float64, handler: proc(value: float64)): Node =
+  proc layerNumberInput(value, min, max, step: float64, handler: proc(value: float64), bounded = true): Node =
     let input = createElement("input")
     input.typ = "number"
-    input.setProp("min", min)
-    input.setProp("max", max)
+    if bounded:
+      input.setProp("min", min)
+      input.setProp("max", max)
     input.setProp("step", step)
     input.value = jsStr(value)
     input.on("input", proc(e: Event) =
-      handler(numVal(input.value, 0))
+      let next = numVal(input.value, 0)
+      if next != next or next == Inf or next == -Inf: return
+      handler(next)
       previewDirty = true)
     input
 
@@ -518,9 +521,9 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
       layersList.appendChild(empty)
       previewDirty = true
       return
-    for index, layer in layers:
-      let i = index
-      let layer = layer
+    # Each card needs its own closure environment: loop bindings can otherwise
+    # make the controls of earlier cards write into the last layer.
+    proc renderLayer(i: int, layer: MediaDraft) =
       let card = div0("qg-media-layer")
       let header = div0("qg-media-layer-head")
       let name = createElement("strong")
@@ -591,14 +594,16 @@ proc editMedia*(ui: EditorUi, target: Val = nil) =
         proc(value: float64) = layer.depth = clamp(value, 0, 100) / 100))
       control("Opacity %", layerNumberInput(jsRound(layer.opacity * 100), 0, 100, 5,
         proc(value: float64) = layer.opacity = clamp(value, 0, 100) / 100))
-      control("Scroll X", layerNumberInput(layer.scrollX, -2000, 2000, 5,
-        proc(value: float64) = layer.scrollX = value))
-      control("Scroll Y", layerNumberInput(layer.scrollY, -2000, 2000, 5,
-        proc(value: float64) = layer.scrollY = value))
+      control("Scroll X", layerNumberInput(layer.scrollX, 0, 0, 5,
+        proc(value: float64) = layer.scrollX = value, bounded = false))
+      control("Scroll Y", layerNumberInput(layer.scrollY, 0, 0, 5,
+        proc(value: float64) = layer.scrollY = value, bounded = false))
       card.appendChild(controls)
       layersList.appendChild(card)
       if focusIndex == i and not locked:
         setTimeout(0, proc() = sourceInput.focus())
+    for i, layer in layers:
+      renderLayer(i, layer)
     previewDirty = true
     loadPreview()
 

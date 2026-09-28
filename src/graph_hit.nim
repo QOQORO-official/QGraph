@@ -145,13 +145,14 @@ proc nearestNodeAnchor(g: Graph, node: Val, world: Pt): AnchorInfo =
              distance: hypot(world.x - anchorWorld.x, world.y - anchorWorld.y))
 
 proc getConnectionAnchors(g: Graph, node: Val): seq[Handle] =
-  ## Dense connection points around the outline (the classic X markers).
+  ## Named data sockets first (dense outline points, the classic X markers,
+  ## come after) -- additive, not exclusive, so a block with typed ports can
+  ## still take a plain flow connection anywhere else on its border.
   if node.tr("portsEnabled"):
     for port in variablePorts(node):
       if port.direction == "input":
         result.add Handle(kind: "port", side: port.side, anchorSpec: port.anchor,
                           anchor: port.point, point: port.point, cursor: "crosshair")
-    return
   var specs: seq[Handle]
   var seen = initHashSet[string]()
   proc push(localPoint: Pt) =
@@ -166,7 +167,8 @@ proc getConnectionAnchors(g: Graph, node: Val): seq[Handle] =
       let angle = -PI / 2 + float64(a) * PI * 2 / 16
       push(pt(nodeX(node) + nodeW(node) / 2 + cos(angle) * nodeW(node) / 2,
               nodeY(node) + nodeH(node) / 2 + sin(angle) * nodeH(node) / 2))
-    return specs
+    result.add specs
+    return
   let outline = g.nodeOutline(node)
   for i in 0 ..< outline.len:
     let p0 = outline[i]
@@ -174,7 +176,7 @@ proc getConnectionAnchors(g: Graph, node: Val): seq[Handle] =
     for step in 0 ..< 4:
       let t = float64(step) / 4
       push(pt(p0.x + (p1.x - p0.x) * t, p0.y + (p1.y - p0.y) * t))
-  specs
+  result.add specs
 
 proc closestCardinalAnchor(g: Graph, node: Val, p: Pt): AnchorInfo =
   const sides = ["north", "east", "south", "west"]
@@ -219,7 +221,10 @@ proc snappedNodeAnchor(g: Graph, node: Val, world: Pt, referencePoint: Pt,
         result = AnchorInfo(found: true, node: node, anchor: clone(port.anchor),
                             side: port.side, point: port.point, distance: distance,
                             snapped: true)
-    return
+    if result.found: return
+    # Not close enough to a named socket -- fall back to the classic
+    # border/outline snap below, so a ports-enabled block can still take a
+    # plain flow connection anywhere else on it.
   let outline = g.nearestNodeAnchor(node, world)
   let anchors = g.getConnectionAnchors(node)
   var best = -1
@@ -250,7 +255,7 @@ proc snappedNodeAnchor(g: Graph, node: Val, world: Pt, referencePoint: Pt,
     return AnchorInfo(found: true, node: node, anchor: clone(c.anchorSpec), side: c.side,
                       point: c.anchor, distance: hypot(world.x - c.anchor.x, world.y - c.anchor.y),
                       outlineDistance: outline.distance, hasOutlineDistance: true, snapped: true)
-  outline
+  return outline
 
 proc connectableNode*(g: Graph, node: Val): Val =
   var current = node
@@ -528,12 +533,14 @@ proc getCustomHandles(g: Graph, node: Val): seq[Handle] =
   handles
 
 proc getPortArrows(g: Graph, node: Val): seq[Handle] =
+  ## Named output sockets, plus (additive, not exclusive -- see
+  ## getConnectionAnchors above) the classic four directional drag-to-connect
+  ## arrows, so a block with typed ports keeps its plain "next step" arrow.
   if node.tr("portsEnabled"):
     for port in variablePorts(node):
       if port.direction == "output":
         result.add Handle(kind: "port", side: port.side, anchorSpec: port.anchor,
                           anchor: port.point, point: port.point, cursor: "crosshair")
-    return
   let distance = 24 / g.zoom
   let center = nodeCenter(node)
   for side in ["north", "east", "south", "west"]:
@@ -552,6 +559,9 @@ proc getPortArrows(g: Graph, node: Val): seq[Handle] =
                       point: pt(port.x + rx, port.y + ry), center: center, cursor: "crosshair")
 
 proc getEdgeHandles(g: Graph, edge: Val): seq[Handle] =
+  # Socket wires are auto-routed: ordinary route/terminal handles would
+  # detach the named anchors and silently turn them into plain connectors.
+  if isSocketWire(edge): return
   var points = edgePoints(edge, g.byId)
   if points.len < 2: return
   let route = edge["route"]

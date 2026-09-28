@@ -311,6 +311,22 @@ proc drawGuides(g: Graph, ctx: Ctx) =
 proc drawSelectedEdge(g: Graph, ctx: Ctx, edge: Val) =
   let points = edgePoints(edge, g.byId)
   if points.len < 2: return
+  if isSocketWire(edge):
+    # Selected dataflow wires stay curved and handle-free. Follow the same
+    # cubic as painter.drawPortWire instead of the saved orthogonal route.
+    let p0 = points[0]
+    let p3 = points[^1]
+    let pull = jsMax(40.0, abs(p3.x - p0.x) * 0.5)
+    ctx.save()
+    ctx.beginPath()
+    ctx.moveTo(p0.x, p0.y)
+    ctx.bezierCurveTo(p0.x + pull, p0.y, p3.x - pull, p3.y, p3.x, p3.y)
+    ctx.strokeStyle = "#9f1239"
+    ctx.lineWidth = 3 / g.zoom
+    ctx.lineCap = "round"
+    ctx.stroke()
+    ctx.restore()
+    return
   let circular = if edge.eqs("lineStyle", "circular"): circularArc(edge, g.byId) else: CircArc()
   ctx.save()
   ctx.beginPath()

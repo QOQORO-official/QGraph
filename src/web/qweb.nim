@@ -96,6 +96,8 @@ proc qw_clear_timeout(id: int32) {.importc, cdecl.}
 proc qw_raf(id: int32) {.importc, cdecl.}
 proc qw_cancel_raf(id: int32) {.importc, cdecl.}
 proc qw_fetch(id: int32, up: pointer, ul: int32, mode: int32) {.importc, cdecl.}
+proc qw_fetch_post(id: int32, up: pointer, ul: int32, bp: pointer, bl: int32,
+                   cp: pointer, cl: int32) {.importc, cdecl.}
 proc qw_read_blob(id: int32, h: int32, mode: int32) {.importc, cdecl.}
 proc qw_blob(p: pointer, n: int32, mp: pointer, ml: int32): int32 {.importc, cdecl.}
 proc qw_image_bitmap(id: int32, h: int32) {.importc, cdecl.}
@@ -585,6 +587,14 @@ proc fetchBytes*(url: string, cb: proc(ok: bool, data: string), preferCache = fa
   let id = request(proc(ok: bool, data: string, h: Node) = cb(ok, data))
   flush()
   qw_fetch(id, sp(url), int32(url.len), if preferCache: 2 else: 1)
+
+proc fetchPostJson*(url, body: string, cb: proc(ok: bool, data: string)) =
+  ## POST `body` as `application/json`; `data` is the response body (or the
+  ## error text when not ok).
+  let id = request(proc(ok: bool, data: string, h: Node) = cb(ok, data))
+  flush()
+  let ct = "application/json"
+  qw_fetch_post(id, sp(url), int32(url.len), sp(body), int32(body.len), sp(ct), int32(ct.len))
 
 proc fetchBlob*(url: string, cb: proc(ok: bool, blob: Node)) =
   let id = request(proc(ok: bool, data: string, h: Node) = cb(ok, h))

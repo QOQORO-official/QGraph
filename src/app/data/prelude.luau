@@ -286,3 +286,56 @@ doc = table.freeze({
 	end,
 	fit = function() call("fit", {}) end,
 })
+
+-- QNote automation --------------------------------------------------------
+-- `call` above is local to this chunk, so both helpers here are bare globals
+-- (like `doc`), the only way block-generated code in the separate "script"
+-- chunk can reach them.
+
+qquote = function(s: any): string
+	return string.format("%q", tostring(s))
+end
+
+-- A property value (Selection.Font.Bold = true, .Name = "Arial") needs its
+-- *own* Luau type preserved in the generated text: a string must come back
+-- quoted, or QNote's VM reads it as a bare (undefined) identifier; a
+-- boolean/number must come back bare, or it reads as the wrong type entirely.
+qval = function(v: any): string
+	if type(v) == "string" then return qquote(v) else return tostring(v) end
+end
+
+-- A value as QNote Luau source, tables included: {{"A", 1}, {"B", 2}} for
+-- Tables(name):Fill(rows). Only data survives -- strings, numbers, booleans
+-- and array tables of them; anything else becomes nil.
+qlit = function(v: any, depth: number?): string
+	local kind = type(v)
+	if kind == "table" then
+		if (depth or 0) > 8 then error("QNote data is nested too deeply", 2) end
+		local parts = {}
+		for i = 1, #v do parts[i] = qlit(v[i], (depth or 0) + 1) end
+		return "{" .. table.concat(parts, ", ") .. "}"
+	elseif kind == "string" then
+		return qquote(v)
+	elseif kind == "number" then
+		return if v ~= v or v == math.huge or v == -math.huge then "0" else tostring(v)
+	elseif kind == "boolean" then
+		return tostring(v)
+	end
+	return "nil"
+end
+
+-- An optional number argument: its digits, or `nil` when it was left blank.
+qnum = function(v: any): string
+	local n = tonumber(v)
+	return if n == nil then "nil" else tostring(n)
+end
+
+qnote = table.freeze({
+	run = function(target: string, program: string, opts: { [string]: any }?): any
+		local o = opts or {}
+		return call("qnote.run", { target = target, program = program,
+			apply = if o.apply == nil then true else o.apply,
+			save = if o.save == nil then true else o.save,
+			timeoutMs = o.timeoutMs })
+	end,
+})

@@ -1902,13 +1902,37 @@ button {
 .qg-canvas.pixel-diagram-container {
     width: 100%;
     height: 100%;
-    overflow: auto;
+    /* The world spacer is sized from clientWidth/clientHeight. Auto scrollbars
+       change those inputs and can toggle every ResizeObserver frame at
+       fractional zoom levels. Reserve both axes to keep the viewport fixed. */
+    overflow: scroll;
     outline: none;
     background: #ffffff;
     scrollbar-color: var(--border-strong) transparent;
     touch-action: none;
     overflow-anchor: none;
 }
+
+.qg-value-builder { display: grid; gap: 10px; min-width: 0; }
+.qg-value-part { position: relative; display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); transition: opacity .12s var(--ease), box-shadow .12s var(--ease); }
+.qg-value-part-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+.qg-value-part-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.qg-value-part-body:has(> select + .qg-input) { grid-template-columns: minmax(96px, 2fr) minmax(0, 3fr); }
+.qg-value-part-body:has(> .qg-value-count-label) { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
+.qg-value-part .qg-input, .qg-value-part .qg-select { width: 100%; min-width: 0; }
+.qg-value-count-label { color: var(--text-2); font-size: 12px; }
+.qg-value-grip, .qg-value-remove { display: inline-grid; place-items: center; width: 28px; height: 32px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-3); }
+.qg-value-grip { cursor: grab; touch-action: none; fill: currentColor; }
+.qg-value-grip:hover, .qg-value-grip:focus-visible { color: var(--text); background: var(--surface-3); }
+.qg-value-remove { cursor: pointer; }
+.qg-value-remove:hover, .qg-value-remove:focus-visible { color: var(--danger); background: var(--surface-3); }
+.qg-value-part.is-dragging { opacity: .55; box-shadow: var(--shadow-2); }
+.qg-value-part.is-dragging .qg-value-grip { cursor: grabbing; }
+.qg-value-part.is-drop-before::before, .qg-value-part.is-drop-after::after { content: ""; position: absolute; left: 4px; right: 4px; height: 3px; border-radius: 3px; background: var(--accent); }
+.qg-value-part.is-drop-before::before { top: -7px; }
+.qg-value-part.is-drop-after::after { bottom: -7px; }
+.qg-value-mode { margin-top: 6px; }
+.qg-value-builder[hidden], .qg-field input[hidden] { display: none; }
 
 .pixel-world-spacer {
     position: absolute;

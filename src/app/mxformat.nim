@@ -123,6 +123,12 @@ proc decodedJson(present: bool, value: string): Val =
   except CatchableError: nil
 
 proc writeRuntimeStyle(style: var Style, item: Val) =
+  # mxGraph's entry/exit coordinates alone discard named-socket identity.
+  # Preserve the complete anchors and socket declarations in our namespace.
+  for key in ["sourceAnchor", "targetAnchor", "portsEnabled", "inputPorts", "outputPorts"]:
+    let value = item.get(key)
+    if not nullish(value): style.set("qochart_" & key, encodedJson(value))
+    else: style.setNull("qochart_" & key)
   var groups: seq[Val]
   if item["groups"].isArr:
     for g in item["groups"]: groups.add g
@@ -140,6 +146,9 @@ proc writeRuntimeStyle(style: var Style, item: Val) =
   else: style.setNull("qochartKind")
 
 proc readRuntimeStyle(item: Val, style: Style) =
+  for key in ["sourceAnchor", "targetAnchor", "portsEnabled", "inputPorts", "outputPorts"]:
+    let value = decodedJson(style.has("qochart_" & key), style.get("qochart_" & key))
+    if not nullish(value): item.put(key, value)
   let groups = decodedJson(style.has("qochartGroups"), style.get("qochartGroups"))
   if groups.isArr and groups.len > 0:
     let arr = newArr()
@@ -619,7 +628,7 @@ proc serialize*(scene: Val): string =
       var seenId = false
       for (name, value) in sourceAttrs.pairs:
         var v = if nullish(value): "" else: str(value)
-        if name == "label" or name == "value": v = label
+        if name == "label" or (name == "value" and not item.eqs("kind", "visualScript")): v = label
         if name == "id": seenId = true
         wrapperAttrs.add " " & name & "=\"" & escapeAttrXml(v) & "\""
       if not seenId: wrapperAttrs.add " id=\"" & escapeAttrXml(idOf(item)) & "\""

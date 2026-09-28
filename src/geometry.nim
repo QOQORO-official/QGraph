@@ -107,6 +107,11 @@ proc nodeH*(n: Val): float64 = num(n["height"])
 proc nodeCenter*(node: Val): Pt {.inline.} =
   pt(nodeX(node) + nodeW(node) / 2, nodeY(node) + nodeH(node) / 2)
 
+proc isSocketWire*(edge: Val): bool =
+  if edge == nil or not edge.eqs("type", "edge"): return false
+  for key in ["sourceAnchor", "targetAnchor"]:
+    if edge.get(key).so("portKind", "") in ["input", "output"]: return true
+
 proc portLabels*(node: Val, direction: string): seq[(string, string)] =
   let source = if direction == "input": node.so("inputPorts", "In")
                else: node.so("outputPorts", "Out")
@@ -117,15 +122,295 @@ proc portLabels*(node: Val, direction: string): seq[(string, string)] =
     if name.len == 0: continue
     result.add (name, if parts.len > 1: parts[1].strip().toLowerAscii() else: "any")
 
+proc textOf*(v: Val): string {.inline.} =
+  ## String(value == null ? '' : value)
+  if nullish(v): "" else: str(v)
+
+proc scriptField*(node: Val, key: string): string =
+  let vs = node["visualScript"]
+  if vs != nil and vs.isObj and not nullish(vs.get(key)): str(vs.get(key)) else: ""
+
+proc scriptCodeVariable*(node: Val): string =
+  ## Default code socket exposes the first global assignment, not a nil
+  ## function return. Locals deliberately remain private to the code block.
+  for line in scriptField(node, "code").split('\n'):
+    let text = line.strip()
+    let eq = text.find('=')
+    if eq <= 0 or text.startsWith("--"): continue
+    let name = text[0 ..< eq].strip()
+    if name.len == 0 or name[0] notin {'a'..'z', 'A'..'Z', '_'}: continue
+    var valid = true
+    for ch in name:
+      if ch notin {'a'..'z', 'A'..'Z', '0'..'9', '_'}: valid = false
+    if valid and eq + 1 < text.len and text[eq + 1] != '=': return name
+
+proc orDash*(s: string): string = (if s.strip.len == 0: "…" else: s.strip)
+
+proc scriptRows*(node: Val): seq[(string, string)] =
+  ## What a script block shows under its title: (caption, value) rows; an
+  ## empty caption marks a code line. Also what a port's dot aligns beside
+  ## (see scriptPortRow/scriptRowLayout below) -- the one text layout both
+  ## painter.nim's drawVisualScript and this module's hit-testing read.
+  let f = proc(k: string): string = scriptField(node, k)
+  case node.so("vsType", "")
+  of "start": result.add ("", "▶ when Run is pressed")
+  of "luau", "function", "process":
+    let code = f("code")
+    if code.strip.len == 0: result.add ("", "-- Luau code")
+    for line in code.split('\n'): result.add ("", line)
+  of "set": result.add ("", orDash(f("name")) & " = " & orDash(f("value")))
+  of "condition":
+    result.add ("", "if " & orDash(f("test")))
+    result.add ("then", "true ▸   else ▸ false")
+  of "for":
+    let step = f("step").strip
+    result.add ("", "for " & orDash(f("iterator")) & " = " & orDash(f("from")) & ", " &
+      orDash(f("to")) & (if step.len > 0 and step != "1": ", " & step else: ""))
+    result.add ("edges", "loop ▸   done ▸")
+  of "while":
+    result.add ("", "while " & orDash(f("condition")))
+    let limit = f("max").strip
+    result.add ("max", if limit.len == 0 or limit == "0": "no limit" else: limit & " times")
+  of "output":
+    result.add ("", orDash(f("value")))
+    let mode = f("mode")
+    result.add ("show", if mode == "console": "in the console"
+                        elif mode == "alert": "as a browser alert"
+                        else: "on this block")
+  of "ask":
+    result.add ("", orDash(f("name")) & " = prompt(" & orDash(f("message")) & ")")
+  of "delay": result.add ("", "wait(" & orDash(f("seconds")) & ")")
+  of "shape":
+    result.add ("shape", orDash(f("target")))
+    result.add ("", orDash(f("property")) & " = " & orDash(f("value")))
+  of "qnoteOpen":
+    let path = f("path").strip
+    result.add ("note", if path.len == 0 or path == "\"\"": "the note open now" else: path)
+  of "qnoteType":
+    let text = orDash(f("text"))
+    let blockKind = f("kind").strip
+    try:
+      # Built from values: one line per inserted element, in order, with
+      # the same "value never chose one -> block's kind" rule the compiler uses.
+      let meta = parseJson(f("__builder_text"))
+      if meta.eqs("mode", "builder") and meta["parts"].isArr and meta["parts"].len > 0 and
+          meta.so("expression", "") == f("text"):
+        for part in meta["parts"]:
+          let insertAs = part.so("insertAs", if blockKind.len == 0: "text" else: blockKind)
+          if insertAs == "newline":
+            result.add ("↵", "newline × " & part.so("count", "1"))
+            continue
+          let value = part.so("value", "")
+          let shown = if value.strip.len == 0: "…"
+                      elif part.eqs("kind", "text"): "\"" & value & "\""
+                      else: value
+          let tag = case insertAs
+            of "h1": "H1"
+            of "h2": "H2"
+            of "h3": "H3"
+            of "bullet": "•"
+            of "number": "1."
+            of "alpha": "a."
+            else: ""
+          result.add (tag, shown)
+        return
+    except JsonError: discard
+    block:
+      case blockKind
+      of "h1": result.add ("H1", text)
+      of "h2": result.add ("H2", text)
+      of "h3": result.add ("H3", text)
+      of "bullet": result.add ("", "• " & text)
+      of "number": result.add ("", "1. " & text)
+      of "alpha": result.add ("", "a. " & text)
+      else: result.add ("", "Type " & text)
+  of "qnoteParagraph":
+    result.add ("", "¶ new paragraph")
+  of "qnoteFind":
+    result.add ("find", orDash(f("find")))
+    result.add ("replace", orDash(f("replace")))
+  of "qnoteFormat", "qnoteParagraphFormat":
+    result.add ("", orDash(f("property")) & " = " & orDash(f("value")))
+  of "qnoteMessage":
+    result.add ("", orDash(f("text")))
+  of "qnoteAnchor":
+    let mode = f("mode").strip
+    result.add ((if mode == "before": "before" elif mode == "after": "after" else: "replace"),
+                "field " & orDash(f("field")))
+  of "qnoteImage":
+    result.add ("", orDash(f("src")))
+    let w = f("width").strip
+    let h = f("height").strip
+    if w.len > 0 or h.len > 0: result.add ("size", (if w.len > 0: w else: "auto") & " × " & (if h.len > 0: h else: "auto"))
+    if f("name").strip.len > 0: result.add ("name", f("name").strip)
+  of "qnoteImageSource":
+    result.add ("image", orDash(f("target")))
+    result.add ("from", orDash(f("src")))
+  of "qnoteTable":
+    result.add ("", orDash(f("rows")) & " × " & orDash(f("cols")))
+    if f("name").strip.len > 0: result.add ("name", f("name").strip)
+    if f("data").strip.len > 0: result.add ("fill", f("data").strip)
+  of "qnoteTableFill":
+    result.add ("table", orDash(f("target")))
+    result.add ("rows", orDash(f("data")))
+  of "qnoteNameObject":
+    result.add ("name", orDash(f("name")))
+  of "qnoteXml":
+    let xml = f("xml").strip.replace('\n', ' ')
+    result.add ("", if xml.len > 60: xml[0 ..< 57] & "…" else: orDash(xml))
+  of "qnoteTemplate":
+    let name = f("templateName").strip
+    result.add ("template", if name.len > 0: name elif f("template").strip.len > 0: f("template") else: "choose one…")
+    let vars = f("variables").strip
+    if vars.len > 0 and vars != "{}": result.add ("with", vars)
+  of "qnoteRun":
+    result.add ("", "Send to QNote")
+    result.add ("save", orDash(f("save")))
+  else:
+    let rows = node["visualRows"]
+    if rows != nil and rows.isArr:
+      for row in rows:
+        if row.isArr and row.len >= 2: result.add (textOf(row[0]), textOf(row[1]))
+    let summary = node["visualSummary"]
+    if summary != nil and summary.isArr and summary.len >= 2:
+      result.add ("", textOf(summary[1]))
+    if result.len == 0:
+      # A plugin-registered block: this module can't see the plugin
+      # registry, but the block carries its own declared fields.
+      let vs = node["visualScript"]
+      if vs != nil and vs.isObj:
+        for key in vs.keys:
+          if key in ["label", "vsType", "lastResult", "lastError"] or key.startsWith("__"): continue
+          result.add (key, orDash(scriptField(node, key)))
+
+proc scriptPortKey*(node: Val, name: string): string =
+  # Legacy code blocks called the two directions `in` and `result`.
+  # They are one displayed socket, without changing saved wire identities.
+  let lower = name.toLowerAscii()
+  let kind = node.so("vsType", "")
+  if kind == "start":
+    # A Start block has only one execution socket, including old documents
+    # with independently named input/output ports or inherited style ports.
+    "next"
+  elif kind in ["set", "output"] and
+      (lower in ["in", "out", "input", "output", "result", "value", "name"] or
+       name == scriptField(node, "name")):
+    "value"
+  elif kind in ["luau", "function", "process"] and lower in ["in", "out", "input", "output", "result"]:
+    "result"
+  elif kind == "qnoteOpen" and lower in ["in", "out", "input", "output", "next", "path"]:
+    "path"
+  elif kind == "qnoteType" and lower in ["in", "out", "input", "output", "next", "text"]:
+    "text"
+  elif kind == "qnoteRun" and lower in ["in", "out", "input", "output", "next", "result"]:
+    "result"
+  else: name
+
+proc scriptPortRow(node: Val, name: string): int =
+  ## Which of a script block's own text rows (scriptRows above) a named port
+  ## visually belongs beside. Almost every block's data lives in its first
+  ## row; "Set shape" is the one block with two distinct rows (which shape,
+  ## then which property) worth telling apart.
+  if node.so("vsType", "") in ["luau", "function", "process"]:
+    for i, row in scriptRows(node):
+      if row[1].strip.len > 0 and not row[1].strip.startsWith("--"): return i
+  if node.eqs("vsType", "shape") and name == "value": return 1
+  if node.eqs("vsType", "qnoteFind") and name == "replace": return 1
+  0
+
+const scriptValueCharW = 6.6
+  ## Advance width estimate, 11px ui-monospace (painter.nim's `scriptMono`)
+  ## -- the value text is always this font, so a character count is exact
+  ## enough to place a pin against without a live canvas to measure with.
+const scriptCaptionCharW = 5.6
+  ## Advance width estimate, 9px Inter 600 -- captions are a handful of
+  ## short fixed words (THEN/EDGES/MAX/SHOW/SHAPE), so this only needs to be
+  ## close.
+
+proc scriptRowLayout(node: Val, row: int): (float64, float64) =
+  ## Local x offsets (pixels from the node's left edge) where a row's value
+  ## text starts (after any caption) and ends, mirroring painter.nim's
+  ## drawVisualScript layout closely enough for a pin to land right against
+  ## the text it represents instead of the block's outer edge.
+  let rows = scriptRows(node)
+  if row < 0 or row >= rows.len: return (9.0, 9.0)
+  let (caption, value) = rows[row]
+  let valueStart = if caption.len > 0: 9.0 + caption.toUpperAscii.len.float64 * scriptCaptionCharW + 6.0
+                   else: 9.0
+  let available = jsMax(0.0, nodeW(node) - 18.0 - (valueStart - 9.0))
+  let shown = jsMin(value.len.float64 * scriptValueCharW, available)
+  (valueStart, valueStart + shown)
+
+proc scriptPortKeys(node: Val): seq[string] =
+  ## Every declared field name, input-declared order first, deduplicated --
+  ## a two-way field (e.g. Set variable's `value`) appears once, not twice.
+  for (n, _) in portLabels(node, "input"):
+    let key = scriptPortKey(node, n)
+    if key notin result: result.add key
+  for (n, _) in portLabels(node, "output"):
+    let key = scriptPortKey(node, n)
+    if key notin result: result.add key
+
+proc scriptPortSide(node: Val, key: string): string =
+  ## Both logical directions sit after the value, never on opposite edges.
+  "output"
+
+proc scriptPortLocalPoint(node: Val, key: string): (float64, float64) =
+  ## The single local (x, y) pixel point, from the node's top-left, where a
+  ## named field's pin sits -- one point per field name (see scriptPortSide),
+  ## so a two-way field is one dot a wire can either feed or read from,
+  ## rather than a separate input dot and output dot for the same variable.
+  let key = scriptPortKey(node, key)
+  let row = scriptPortRow(node, key)
+  let side = scriptPortSide(node, key)
+  var siblings: seq[string]
+  for k in scriptPortKeys(node):
+    if scriptPortRow(node, k) == row and scriptPortSide(node, k) == side: siblings.add k
+  var slot = 0
+  for i, k in siblings:
+    if k == key: slot = i
+  let header = jsMin(26.0, nodeH(node))
+  let localY = header + 13.0 + float64(row) * 15.0
+  let (valueStart, valueEnd) = scriptRowLayout(node, row)
+  let localX = if side == "input": jsMax(3.0, valueStart - 6.0 - float64(slot) * 11.0)
+               else: valueEnd + 7.0 + float64(slot) * 11.0
+  (localX, localY)
+
+proc portYFraction*(node: Val, direction: string, index: int,
+                    entries: seq[(string, string)]): float64 =
+  ## A port's vertical position as a fraction of the node's height. For an
+  ## ordinary shape this spreads every port evenly down the side. For a
+  ## script block it instead glues the dot to the text row that shows the
+  ## variable it reads or writes (scriptRows/scriptPortRow), so the pin
+  ## always sits beside its field instead of floating independently of the
+  ## block's own content.
+  if node.eqs("kind", "visualScript") and entries.len > 0:
+    let (_, y) = scriptPortLocalPoint(node, entries[index][0])
+    return clamp(y / jsMax(1.0, nodeH(node)), 0.06, 0.94)
+  float64(index + 1) / float64(entries.len + 1)
+
+proc portXFraction*(node: Val, direction: string, index: int,
+                    entries: seq[(string, string)]): float64 =
+  ## A port's horizontal position as a fraction of the node's width. For an
+  ## ordinary shape this is the classic 0 (west/input) or 1 (east/output). A
+  ## script block instead hugs the actual text of the row it belongs to (see
+  ## scriptPortLocalPoint) -- and, notably, does not depend on `direction`:
+  ## a field's input and output variants resolve to the identical point, so
+  ## they draw and hit-test as one shared dot, not two.
+  if node.eqs("kind", "visualScript") and entries.len > 0:
+    let (x, _) = scriptPortLocalPoint(node, entries[index][0])
+    return clamp(x / jsMax(1.0, nodeW(node)), 0.02, 0.98)
+  if direction == "input": 0.0 else: 1.0
+
 proc variablePorts*(node: Val): seq[VariablePort] =
   if not node.tr("portsEnabled") or node.eqs("type", "edge"): return
   let center = nodeCenter(node)
   for direction in ["input", "output"]:
     let entries = portLabels(node, direction)
     let side = if direction == "input": "west" else: "east"
-    let x = if direction == "input": 0.0 else: 1.0
     for i, entry in entries:
-      let y = float64(i + 1) / float64(entries.len + 1)
+      let x = portXFraction(node, direction, i, entries)
+      let y = portYFraction(node, direction, i, entries)
       let anchor = newObj()
       anchor["x"] = jnum(x)
       anchor["y"] = jnum(y)
@@ -154,8 +439,8 @@ proc nodeAnchor*(node: Val, anchor: Val, fallbackSide: string): Pt =
     let entries = portLabels(node, direction)
     let index = int(num(anchor["portIndex"]))
     if direction in ["input", "output"] and index >= 0 and index < entries.len:
-      let x = if direction == "input": 0.0 else: 1.0
-      let y = float64(index + 1) / float64(entries.len + 1)
+      let x = portXFraction(node, direction, index, entries)
+      let y = portYFraction(node, direction, index, entries)
       return rotatePoint(pt(nodeX(node) + x * nodeW(node), nodeY(node) + y * nodeH(node)),
                          nodeCenter(node), rot(node))
   if nullish(anchor) or not isFiniteNum(num(anchor["x"])) or not isFiniteNum(num(anchor["y"])):

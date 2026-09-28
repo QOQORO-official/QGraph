@@ -18,34 +18,140 @@ type
     vsType, label, description, color, iconName: string
     width, height: float64
     fields: seq[(string, string)]
+    inputPorts, outputPorts: seq[(string, string)]
+      ## Named, typed data sockets (name, type). These read and write the
+      ## same `__input`/`__ports` slots the compiler already threads through
+      ## `expr()` and `finishWith()` below -- declaring them here only gives
+      ## the existing named-socket engine (geometry.nim's `variablePorts`)
+      ## something to draw and connect. Purely additive: a block with none
+      ## behaves exactly as before.
 
 proc blockDef(vsType, label, description, color, iconName: string, width, height: float64,
-              fields: openArray[(string, string)] = []): ScriptBlockDef =
+              fields: openArray[(string, string)] = [],
+              inputPorts: openArray[(string, string)] = [],
+              outputPorts: openArray[(string, string)] = []): ScriptBlockDef =
   ScriptBlockDef(vsType: vsType, label: label, description: description, color: color,
-                 iconName: iconName, width: width, height: height, fields: @fields)
+                 iconName: iconName, width: width, height: height, fields: @fields,
+                 inputPorts: @inputPorts, outputPorts: @outputPorts)
 
-let scriptBlockDefs = @[
-  blockDef("start", "Start", "Where the program begins", "#10b981", "flag", 180, 64),
+var scriptBlockDefs = @[
+  blockDef("start", "Start", "Where the program begins", "#10b981", "flag", 180, 64,
+    outputPorts = [("next", "flow")]),
   blockDef("output", "Output", "Show a value on the block, in the console or as an alert",
-    "#22c55e", "message", 220, 118, [("value", "\"Hello, world!\""), ("mode", "block")]),
+    "#22c55e", "message", 220, 118, [("value", "\"Hello, world!\""), ("mode", "block")],
+    inputPorts = [("value", "any")], outputPorts = [("value", "any")]),
   blockDef("luau", "Luau code", "Any Luau: variables, loops, functions, doc.*", "#6366f1",
     "script", 260, 150, [("code", "-- Globals are shared by every block\n" &
-      "count = (count or 0) + 1\nprint(\"count is\", count)")]),
+      "count = (count or 0) + 1\nprint(\"count is\", count)")],
+    inputPorts = [("in", "any")], outputPorts = [("result", "any")]),
   blockDef("set", "Set variable", "Store a value for later blocks", "#0ea5e9", "variable", 210, 76,
-    [("name", "count"), ("value", "0")]),
+    [("name", "count"), ("value", "0")],
+    inputPorts = [("value", "any")], outputPorts = [("value", "any")]),
   blockDef("condition", "If", "Follow the true or the false connector", "#f59e0b", "branch",
-    210, 92, [("test", "count > 3")]),
+    210, 92, [("test", "count > 3")], inputPorts = [("test", "bool")]),
   blockDef("for", "Repeat", "Count through a range of numbers", "#f97316", "loop", 210, 92,
-    [("iterator", "i"), ("from", "1"), ("to", "3"), ("step", "1")]),
+    [("iterator", "i"), ("from", "1"), ("to", "3"), ("step", "1")],
+    inputPorts = [("from", "number"), ("to", "number"), ("step", "number")]),
   blockDef("while", "While", "Loop while a condition holds", "#a855f7", "loop", 210, 92,
-    [("condition", "count < 10"), ("max", "100")]),
+    [("condition", "count < 10"), ("max", "100")], inputPorts = [("condition", "bool")]),
   blockDef("ask", "Ask", "Ask the user to type a value", "#3b82f6", "ask", 230, 76,
-    [("name", "answer"), ("message", "\"What is your name?\""), ("default", "\"\"")]),
+    [("name", "answer"), ("message", "\"What is your name?\""), ("default", "\"\"")],
+    inputPorts = [("message", "string"), ("default", "any")], outputPorts = [("value", "any")]),
   blockDef("delay", "Wait", "Pause for a number of seconds", "#eab308", "clock", 180, 76,
-    [("seconds", "1")]),
+    [("seconds", "1")], inputPorts = [("seconds", "number")]),
   blockDef("shape", "Set shape", "Change a shape on the canvas", "#ec4899", "wand", 230, 92,
-    [("target", "Process"), ("property", "fill"), ("value", "\"#fde68a\"")]),
+    [("target", "Process"), ("property", "fill"), ("value", "\"#fde68a\"")],
+    inputPorts = [("target", "string"), ("value", "any")], outputPorts = [("value", "any")]),
+  blockDef("qnoteOpen", "Open QNote", "Target a QNote document: leave the path blank for the one open now",
+    "#2563eb", "note", 230, 76, [("path", "")], inputPorts = [("path", "string")], outputPorts = [("next", "flow")]),
+  blockDef("qnoteType", "Insert text", "Type text, a heading, or a list item at the cursor",
+    "#2563eb", "edit", 220, 92, [("text", "\"Hello, world!\""), ("kind", "text")],
+    inputPorts = [("text", "string")], outputPorts = [("next", "flow")]),
+  blockDef("qnoteParagraph", "New paragraph", "Start a new paragraph",
+    "#2563eb", "page", 200, 64),
+  blockDef("qnoteFind", "Find & Replace", "Replace every match in the document",
+    "#2563eb", "search", 230, 108, [("find", "\"\""), ("replace", "\"\""), ("matchCase", "false")],
+    inputPorts = [("find", "string"), ("replace", "string")]),
+  blockDef("qnoteFormat", "Character format",
+    "Set a character property (Bold, Italic, Underline, Size, …) on the current selection",
+    "#2563eb", "bold", 220, 92, [("property", "Bold"), ("value", "true")],
+    inputPorts = [("value", "any")]),
+  blockDef("qnoteParagraphFormat", "Paragraph format",
+    "Set a paragraph property (Alignment, …) on the current selection",
+    "#2563eb", "indent", 220, 92, [("property", "Alignment"), ("value", "\"center\"")],
+    inputPorts = [("value", "any")]),
+  blockDef("qnoteMessage", "QNote message", "Show a message box in the QNote editor",
+    "#2563eb", "message", 220, 76, [("text", "\"Done\"")], inputPorts = [("text", "string")]),
+  blockDef("qnoteTemplate", "QNote template", "Insert a template from the server library at the cursor",
+    "#2563eb", "page", 240, 92, [("template", ""), ("templateName", ""), ("variables", "{}")],
+    inputPorts = [("variables", "any")], outputPorts = [("next", "flow")]),
+  # Anchors: a named field marks where content goes; images and tables can be
+  # named and found again. These compile to QNote's own Luau anchor API
+  # (Fields(n):Select, Selection:InsertImage/InsertXml/NameObject,
+  # Images(n):SetSource, Tables(n):Fill).
+  blockDef("qnoteAnchor", "Go to field", "Move the cursor to a named field, or replace the field",
+    "#2563eb", "link", 230, 92, [("field", "\"Logo\""), ("mode", "replace")],
+    inputPorts = [("field", "string")], outputPorts = [("next", "flow")]),
+  blockDef("qnoteImage", "Insert image", "Insert a picture at the cursor from an http(s) or data: URL",
+    "#2563eb", "image", 240, 108,
+    [("src", "\"https://example.com/logo.png\""), ("width", ""), ("height", ""), ("name", "")],
+    inputPorts = [("src", "string"), ("width", "number")], outputPorts = [("next", "flow")]),
+  blockDef("qnoteImageSource", "Replace image", "Swap the picture of a named image, keeping its size and place",
+    "#2563eb", "image", 240, 92, [("target", "\"logo\""), ("src", "\"https://example.com/new.png\"")],
+    inputPorts = [("target", "string"), ("src", "string")], outputPorts = [("next", "flow")]),
+  blockDef("qnoteTable", "Insert table", "Insert a table at the cursor, optionally named and filled",
+    "#2563eb", "table", 240, 108, [("rows", "2"), ("cols", "3"), ("name", ""), ("data", "")],
+    inputPorts = [("data", "any")], outputPorts = [("next", "flow")]),
+  blockDef("qnoteTableFill", "Fill table", "Fill a named table from a list of rows, adding rows it lacks",
+    "#2563eb", "table", 240, 92,
+    [("target", "\"results\""), ("data", "{{\"Sample\", \"Value\"}, {\"A\", 1}}")],
+    inputPorts = [("target", "string"), ("data", "any")], outputPorts = [("next", "flow")]),
+  blockDef("qnoteNameObject", "Name object", "Name the selected image or table (or the one just before the cursor)",
+    "#2563eb", "edit", 220, 76, [("name", "\"results\"")],
+    inputPorts = [("name", "string")], outputPorts = [("next", "flow")]),
+  blockDef("qnoteXml", "Insert XML", "Insert a QNote XML fragment (text, tables, images) at the cursor",
+    "#2563eb", "code", 250, 108,
+    [("xml", "<doc><qotext>Inserted from QoChart</qotext></doc>")],
+    inputPorts = [("xml", "string")], outputPorts = [("next", "flow")]),
+  blockDef("qnoteRun", "Run & Save", "Send the QNote program and wait for the result",
+    "#2563eb", "play", 220, 108, [("save", "true"), ("timeoutMs", "60000")],
+    inputPorts = [("next", "flow")], outputPorts = [("result", "any")]),
 ]
+
+type
+  PluginParamKind = enum ppkLiteral, ppkField
+  PluginParam = object
+    name: string        ## the fixed operation's parameter name
+    kind: PluginParamKind
+    text: string        ## the literal string, or (kind == ppkField) a field key
+  PluginOperation = object
+    opRef: string        ## one of the five fixed operations, e.g. "qnote.insertText"
+    params: seq[PluginParam]
+  PluginFieldKind = enum pfkText, pfkExpr
+  PluginFieldDef = object
+    key, label, default: string
+    kind: PluginFieldKind
+
+var pluginOperations = initTable[string, PluginOperation]()
+  ## vsType -> the one fixed operation a plugin-registered block runs.
+  ## Declarative only, by design: a plugin can wire its own fields/ports
+  ## around one of five already-implemented, safe operations -- never
+  ## supply Luau of its own. See blockBody's generic dispatch below and
+  ## loadPlugins/parsePluginXml further down for how this gets populated.
+var pluginFields = initTable[string, seq[PluginFieldDef]]()
+  ## vsType -> its declared fields, so buildScriptInspector (script_ui.nim)
+  ## can render them the same generic way as a built-in block's fields.
+
+proc refreshScriptBlockPalette(ui: EditorUi)
+  ## Defined in script_ui.nim; forward-declared so loadPlugins (this file)
+  ## can ask the Script tab to redraw its block palette once plugin blocks
+  ## have arrived, the same forward-reference pattern handleWorkerMessage
+  ## already uses below.
+
+proc portsString(ports: seq[(string, string)]): string =
+  var parts: seq[string]
+  for (name, kind) in ports: parts.add name & ":" & kind
+  parts.join(", ")
 
 proc findBlockDef(vsType: string): (bool, ScriptBlockDef) =
   for d in scriptBlockDefs:
@@ -68,6 +174,15 @@ proc scriptTemplate(d: ScriptBlockDef): Val =
   result["fontSize"] = jnum(12)
   result["editable"] = jfalse
   result["shadow"] = jtrue
+  if d.inputPorts.len > 0 or d.outputPorts.len > 0:
+    # Sockets exist and can already be wired even while collapsed (an edge
+    # keeps the socket it was drawn to); this only controls whether they are
+    # drawn on the block itself. Visible and connectable by default -- a pin
+    # you can't see or click isn't a pin -- with a per-block inspector switch
+    # to hide them again once a canvas gets crowded.
+    result["portsEnabled"] = jtrue
+    result["inputPorts"] = jstr(portsString(d.inputPorts))
+    result["outputPorts"] = jstr(portsString(d.outputPorts))
   let vs = newObj()
   vs["label"] = jstr(d.label)
   vs["vsType"] = jstr(d.vsType)
@@ -144,6 +259,12 @@ proc nextList(targets: seq[string]): string =
 proc expr(item: Val, key, fallback: string): string =
   let text = jsTrim(blockField(item, key))
   let authored = if text.len == 0: fallback else: "(" & text & ")"
+  # A builder expression already joins its chosen variables and literals;
+  # a data wire must not replace that entire expression with one raw value.
+  try:
+    let meta = parseJson(blockField(item, "__builder_" & key))
+    if meta.eqs("mode", "builder"): return authored
+  except: discard
   "(if __input[" & luaQuote(key) & "] ~= nil then __input[" & luaQuote(key) &
     "] else " & authored & ")"
 
@@ -156,12 +277,98 @@ proc namedPort(node, anchor: Val): string =
   if anchor["portIndex"].isNum and index >= 0 and index < labels.len: labels[index][0]
   else: anchor.so("portName", "")
 
+proc namedPortIsFlow(node, anchor: Val): bool =
+  let name = namedPort(node, anchor)
+  for (key, kind) in portLabels(node, anchor.so("portKind", "")):
+    if key == name and kind == "flow": return true
+
+proc emitQnoteInsert(body: var seq[string], kind, textExpr: string) =
+  ## One Selection:* call inserting `textExpr` (a QGraph-Luau expression
+  ## that evaluates to the text) as `kind` -- shared by the single-value
+  ## "Insert text" path and each part of a multi-part one, so both stay in
+  ## sync with QNote's actual automation API (verified against its runtime
+  ## source, not guessed): InsertHeading wants "h1"/"h2"/"h3", not a number;
+  ## a list item sets ParagraphFormat.List, types the text, then resets it
+  ## so it never leaks into whatever comes next in the program.
+  case kind
+  of "h1", "h2", "h3":
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection:InsertHeading(\" .. qquote(" &
+      textExpr & ") .. \", \" .. qquote(" & luaQuote(kind) & ") .. \")\\n\""
+  of "bullet", "number", "alpha":
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection.ParagraphFormat.List = \" .. qquote(" &
+      luaQuote(kind) & ") .. \"\\n\""
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection:TypeText(\" .. qquote((" &
+      textExpr & ") .. \"\\n\") .. \")\\n\""
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection.ParagraphFormat.List = \" .. qquote(\"none\") .. \"\\n\""
+  else:
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection:TypeText(\" .. qquote(" &
+      textExpr & ") .. \")\\n\""
+
+proc emitQnoteFontSet(body: var seq[string], property, valueExpr: string) =
+  ## Factored out of the "qnoteFormat" block body so a plugin-registered
+  ## block built on the "qnote.setFontProperty" operation runs through the
+  ## exact same, already-correct codegen -- see qval in prelude.luau for why
+  ## this isn't tostring(): a string value must land re-quoted.
+  body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection.Font." & property & " = \" .. qval(" &
+    valueExpr & ") .. \"\\n\""
+
+proc emitQnoteParagraphSet(body: var seq[string], property, valueExpr: string) =
+  ## The "qnoteParagraphFormat" block body, factored the same way as
+  ## emitQnoteFontSet above, for the "qnote.setParagraphProperty" operation.
+  body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection.ParagraphFormat." & property &
+    " = \" .. qval(" & valueExpr & ") .. \"\\n\""
+
+proc emitShapeSet(body: var seq[string], target, prop, valueExpr: string): string =
+  ## The "shape" block body, factored for the "doc.setShapeProperty"
+  ## operation. Returns an error message ("" on success) -- and, matching
+  ## today's built-in "shape" block exactly, `target`/`prop` are always
+  ## resolved from plain field text upstream, never through expr(), so a
+  ## wired input on either has no effect either way; only `valueExpr` is a
+  ## real Luau expression.
+  if target.len == 0: return "Name the shape to change (its label or id)"
+  if not isLuauName(prop): return "“" & prop & "” is not a shape property"
+  body.add "\tlocal target = doc.find(" & luaQuote(target) & ")"
+  body.add "\tif target == nil then error(" & luaQuote("there is no shape labelled “" & target & "”") & ", 0) end"
+  body.add "\tdoc.set(target.id, { " & prop & " = " & valueExpr & " })"
+  ""
+
+proc emitValueCompute(body: var seq[string], name, valueExpr: string): string =
+  ## The "set" block body, factored for the "value.compute" operation.
+  ## Returns an error message ("" on success).
+  if not isLuauName(name, dotted = true):
+    return "“" & name & "” is not a variable name (letters, digits and _, not starting with a digit)"
+  body.add "\t" & name & " = " & valueExpr
+  ""
+
+proc qnotePartExpr(part: Val): string =
+  ## Mirrors script_ui.nim's blockValueBuilder.generate(): a "text" part is
+  ## quoted, everything else (number/expr/variable) is used as authored --
+  ## already valid Luau -- so reconstructing one part here in isolation
+  ## produces the same fragment the builder's own preview would for it.
+  let value = part.so("value", "")
+  if part.eqs("kind", "text"): luaQuote(value)
+  elif value.strip().len == 0: "nil"
+  else: value
+
+proc qnoteMultiParts(item: Val): seq[Val] =
+  ## The "text" field's builder values when the builder owns it: each value
+  ## is inserted as its own element, with its own "Insert as". Empty in
+  ## "Type manually" mode (or if the saved builder no longer matches the
+  ## text), where the block-level "Insert as" applies to the whole text.
+  try:
+    let meta = parseJson(blockField(item, "__builder_text"))
+    if not meta.eqs("mode", "builder") or not meta["parts"].isArr: return
+    if meta.so("expression", "") != blockField(item, "text"): return
+    for part in meta["parts"]: result.add part
+  except JsonError: discard
+
 proc blockBody(item: Val, outs: seq[(string, string)], body: var seq[string]): string =
   ## Appends the Luau for one block; returns an error message or "".
   let id = idOf(item)
   let label = plainText(item)
   var targets: seq[string]
-  for (_, t) in outs: targets.add t
+  for (_, t) in outs:
+    if t notin targets: targets.add t
   let next = "\treturn " & nextList(targets)
   let vsType = if item["vsType"].isStr: item["vsType"].s else: ""
   template finishWith(value: string) =
@@ -181,12 +388,15 @@ proc blockBody(item: Val, outs: seq[(string, string)], body: var seq[string]): s
       for line in code.split('\n'): body.add line
       body.add "\tend)()"
       body.add "\tif __result ~= nil then result = __result end"
-    finishWith("result")
+    let variable = scriptCodeVariable(item)
+    finishWith(if variable.len > 0:
+      "(if __result ~= nil then __result else " & variable & ")"
+      else: "result")
   of "set":
     let name = jsTrim(blockField(item, "name"))
-    if not isLuauName(name, dotted = true):
-      return "“" & name & "” is not a variable name (letters, digits and _, not starting with a digit)"
-    body.add "\t" & name & " = " & expr(item, "value", "nil")
+    let valueExpr = expr(item, "value", "nil")
+    let err = emitValueCompute(body, name, valueExpr)
+    if err.len > 0: return err
     finishWith(name)
   of "condition":
     let (yes, no) = splitBranches(outs, falseLabels)
@@ -245,12 +455,119 @@ proc blockBody(item: Val, outs: seq[(string, string)], body: var seq[string]): s
   of "shape":
     let target = jsTrim(blockField(item, "target"))
     let prop = jsTrim(blockField(item, "property"))
-    if target.len == 0: return "Name the shape to change (its label or id)"
-    if not isLuauName(prop): return "“" & prop & "” is not a shape property"
-    body.add "\tlocal target = doc.find(" & luaQuote(target) & ")"
-    body.add "\tif target == nil then error(" & luaQuote("there is no shape labelled “" & target & "”") & ", 0) end"
-    body.add "\tdoc.set(target.id, { " & prop & " = " & expr(item, "value", "nil") & " })"
-    finishWith(expr(item, "value", "nil"))
+    let valueExpr = expr(item, "value", "nil")
+    let err = emitShapeSet(body, target, prop, valueExpr)
+    if err.len > 0: return err
+    finishWith(valueExpr)
+  of "qnoteOpen":
+    body.add "\t__qnoteProgram = \"\""
+    body.add "\t__qnoteTarget = " & expr(item, "path", "\"\"")
+    finishWith("nil")
+  of "qnoteType":
+    let kind = jsTrim(blockField(item, "kind"))
+    let multiParts = qnoteMultiParts(item)
+    if multiParts.len > 0:
+      # A value that never chose its own "Insert as" keeps the block's.
+      let inherited = if kind.len == 0: "text" else: kind
+      for part in multiParts:
+        let insertAs = part.so("insertAs", inherited)
+        if insertAs == "newline":
+          let countText = part.so("count", "1").strip()
+          var count = 1
+          try: count = parseInt(countText)
+          except ValueError: count = 1
+          count = max(1, min(50, count))
+          emitQnoteInsert(body, "text", luaQuote(repeat('\n', count)))
+        else:
+          emitQnoteInsert(body, insertAs, qnotePartExpr(part))
+    else:
+      emitQnoteInsert(body, kind, expr(item, "text", "\"\""))
+    finishWith("nil")
+  of "qnoteParagraph":
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection:TypeParagraph()\\n\""
+    finishWith("nil")
+  of "qnoteFind":
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"ActiveDocument.Content.Find:Execute({FindText=\" .. qquote(" &
+      expr(item, "find", "\"\"") & ") .. \", ReplaceWith=\" .. qquote(" & expr(item, "replace", "\"\"") &
+      ") .. \", MatchCase=\" .. tostring(" & expr(item, "matchCase", "false") & ") .. \"})\\n\""
+    finishWith("nil")
+  of "qnoteFormat":
+    let prop = jsTrim(blockField(item, "property"))
+    if not isLuauName(prop): return "“" & prop & "” is not a character-format property"
+    emitQnoteFontSet(body, prop, expr(item, "value", "nil"))
+    finishWith("nil")
+  of "qnoteParagraphFormat":
+    let prop = jsTrim(blockField(item, "property"))
+    if not isLuauName(prop): return "“" & prop & "” is not a paragraph-format property"
+    emitQnoteParagraphSet(body, prop, expr(item, "value", "nil"))
+    finishWith("nil")
+  of "qnoteMessage":
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"ActiveDocument:Message(\" .. qquote(" &
+      expr(item, "text", "\"\"") & ") .. \")\\n\""
+    finishWith("nil")
+  of "qnoteTemplate":
+    # Not Luau QNote can run: a directive line (a Luau comment, harmless if
+    # nothing reads it) that QNote's bridge, vault-bridge.js, cuts the program
+    # at -- Luau before it runs, then the template from the server library
+    # goes in at the cursor, then the rest.
+    let templateId = jsTrim(blockField(item, "template"))
+    if templateId.len == 0:
+      return "Choose a QNote template (the list comes from a QNote Vault server)"
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"--@qnote-template \" .. json.encode({ id = " &
+      luaQuote(templateId) & ", variables = " & expr(item, "variables", "{}") & " }) .. \"\\n\""
+    finishWith("nil")
+  of "qnoteAnchor":
+    let mode = jsTrim(blockField(item, "mode"))
+    let safeMode = if mode in ["before", "after"]: mode else: "replace"
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"ActiveDocument.Fields(\" .. qquote(" &
+      expr(item, "field", "\"\"") & ") .. \"):Select(\\\"" & safeMode & "\\\")\\n\""
+    finishWith("nil")
+  of "qnoteImage":
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection:InsertImage(\" .. qquote(" &
+      expr(item, "src", "\"\"") & ") .. \", \" .. qnum(" & expr(item, "width", "nil") &
+      ") .. \", \" .. qnum(" & expr(item, "height", "nil") & ") .. \")\\n\""
+    let name = jsTrim(blockField(item, "name"))
+    if name.len > 0:
+      # Right after an inline insert the picture sits just before the cursor,
+      # which is what NameObject names when nothing is selected.
+      body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection:NameObject(\" .. qquote(" &
+        expr(item, "name", "\"\"") & ") .. \")\\n\""
+    finishWith("nil")
+  of "qnoteImageSource":
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"ActiveDocument.Images(\" .. qval(" &
+      expr(item, "target", "1") & ") .. \"):SetSource(\" .. qquote(" & expr(item, "src", "\"\"") &
+      ") .. \")\\n\""
+    finishWith("nil")
+  of "qnoteTable":
+    let name = jsTrim(blockField(item, "name"))
+    let data = jsTrim(blockField(item, "data"))
+    var line = "\t__qnoteProgram = __qnoteProgram .. \"do local t = ActiveDocument.Tables:Add(\" .. qnum(" &
+      expr(item, "rows", "2") & ") .. \", \" .. qnum(" & expr(item, "cols", "3") & ") .. \")"
+    if name.len > 0: line &= "; t.Name = \" .. qquote(" & expr(item, "name", "\"\"") & ") .. \""
+    if data.len > 0 or item.tr("portsEnabled"):
+      # A wired or authored list of rows fills it; nil leaves it empty.
+      line &= "; local rows = \" .. qlit(" & expr(item, "data", "nil") & ") .. \"; if rows then t:Fill(rows) end"
+    body.add line & " end\\n\""
+    finishWith("nil")
+  of "qnoteTableFill":
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"ActiveDocument.Tables(\" .. qval(" &
+      expr(item, "target", "1") & ") .. \"):Fill(\" .. qlit(" & expr(item, "data", "{}") & ") .. \")\\n\""
+    finishWith("nil")
+  of "qnoteNameObject":
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection:NameObject(\" .. qquote(" &
+      expr(item, "name", "\"\"") & ") .. \")\\n\""
+    finishWith("nil")
+  of "qnoteXml":
+    # Authored as literal XML (a code field, not a Luau expression); a wire
+    # into the xml socket replaces it with a computed string.
+    let authored = luaQuote(blockField(item, "xml"))
+    body.add "\t__qnoteProgram = __qnoteProgram .. \"Selection:InsertXml(\" .. qquote(" &
+      "if __input[\"xml\"] ~= nil then __input[\"xml\"] else " & authored & ") .. \")\\n\""
+    finishWith("nil")
+  of "qnoteRun":
+    body.add "\tlocal __qnoteResult = qnote.run(__qnoteTarget, __qnoteProgram, { save = " &
+      expr(item, "save", "true") & ", timeoutMs = tonumber(" & expr(item, "timeoutMs", "60000") & ") })"
+    finishWith("__qnoteResult")
   of "input":
     # Documents from the earlier editor: an Input card exports variables.
     try:
@@ -266,9 +583,68 @@ proc blockBody(item: Val, outs: seq[(string, string)], body: var seq[string]): s
     except JsonError: discard
     finishWith("nil")
   else:
-    body.add "\twarn(" & luaQuote((if label.len > 0: label else: vsType) &
-      ": this kind of block does not run here, so it was skipped") & ")"
-    finishWith("nil")
+    if pluginOperations.hasKey(vsType):
+      let operation = pluginOperations[vsType]
+      let fields = pluginFields.getOrDefault(vsType, @[])
+      proc find(name: string): (bool, PluginParam) =
+        for p in operation.params:
+          if p.name == name: return (true, p)
+      proc fieldKind(key: string): PluginFieldKind =
+        for f in fields:
+          if f.key == key: return f.kind
+        pfkText
+      proc text(name, fallback: string): string =
+        ## A compile-time-known plain-text value -- a property name, an
+        ## "insert as" tag -- never a runtime expression.
+        let (found, p) = find(name)
+        if not found: return fallback
+        case p.kind
+        of ppkLiteral: p.text
+        of ppkField: jsTrim(blockField(item, p.text))
+      proc lexpr(name, fallback: string): string =
+        ## A Luau expression. A field declared kind="expr" goes through the
+        ## normal expr() -- data-wire and value-builder support included, the
+        ## same as any built-in block's expr field; a literal or a kind="text"
+        ## field becomes a quoted string-literal expression.
+        let (found, p) = find(name)
+        if not found: return fallback
+        case p.kind
+        of ppkLiteral: luaQuote(p.text)
+        of ppkField:
+          if fieldKind(p.text) == pfkExpr: expr(item, p.text, fallback)
+          else: luaQuote(jsTrim(blockField(item, p.text)))
+      case operation.opRef
+      of "qnote.insertText":
+        emitQnoteInsert(body, text("kind", "text"), lexpr("text", "\"\""))
+        finishWith("nil")
+      of "qnote.setFontProperty":
+        let prop = text("property", "")
+        if not isLuauName(prop): return "“" & prop & "” is not a character-format property"
+        emitQnoteFontSet(body, prop, lexpr("value", "nil"))
+        finishWith("nil")
+      of "qnote.setParagraphProperty":
+        let prop = text("property", "")
+        if not isLuauName(prop): return "“" & prop & "” is not a paragraph-format property"
+        emitQnoteParagraphSet(body, prop, lexpr("value", "nil"))
+        finishWith("nil")
+      of "doc.setShapeProperty":
+        let valueExpr = lexpr("value", "nil")
+        let err = emitShapeSet(body, text("target", ""), text("property", ""), valueExpr)
+        if err.len > 0: return err
+        finishWith(valueExpr)
+      of "value.compute":
+        let name = text("name", "")
+        let valueExpr = lexpr("value", "nil")
+        let err = emitValueCompute(body, name, valueExpr)
+        if err.len > 0: return err
+        finishWith(name)
+      else:
+        body.add "\twarn(" & luaQuote(vsType & ": unknown plugin operation “" & operation.opRef & "”") & ")"
+        finishWith("nil")
+    else:
+      body.add "\twarn(" & luaQuote((if label.len > 0: label else: vsType) &
+        ": this kind of block does not run here, so it was skipped") & ")"
+      finishWith("nil")
   ""
 
 proc compileScript(ui: EditorUi, entryIds: seq[string] = @[]): ScriptProgram =
@@ -295,7 +671,16 @@ proc compileScript(ui: EditorUi, entryIds: seq[string] = @[]): ScriptProgram =
       let outputName = namedPort(g.byId.getOrDefault(source, nil), item["sourceAnchor"])
       let inputName = namedPort(g.byId.getOrDefault(target, nil), item["targetAnchor"])
       if outputName.len > 0 and inputName.len > 0:
-        dataInputs.mgetOrPut(target, @[]).add (inputName, source, outputName)
+        if not namedPortIsFlow(g.byId[source], item["sourceAnchor"]) and
+            not namedPortIsFlow(g.byId[target], item["targetAnchor"]):
+          dataInputs.mgetOrPut(target, @[]).add (inputName, source, outputName)
+        # Visible socket connections also carry execution downstream.
+        # Otherwise a Start -> code -> Output chain stops at the code block.
+        var linked = false
+        for (_, existing) in outs.getOrDefault(source, @[]):
+          if existing == target: linked = true
+        if not linked: outs.mgetOrPut(source, @[]).add (edgeLabel(item), target)
+        incoming.incl target
       else:
         outs.mgetOrPut(source, @[]).add (edgeLabel(item), target)
         incoming.incl target
@@ -323,7 +708,9 @@ proc compileScript(ui: EditorUi, entryIds: seq[string] = @[]): ScriptProgram =
     "-- Generated by QGraph from the diagram's script blocks.",
     "local __nodes = {}",
     "local __loops = {}",
-    "local __ports = {}"]
+    "local __ports = {}",
+    "local __qnoteProgram = \"\"",
+    "local __qnoteTarget = \"\""]
   for item in blocks:
     let first = lines.len + 1
     lines.add "__nodes[" & luaQuote(idOf(item)) & "] = function() -- " &
@@ -773,22 +1160,98 @@ proc handleWorkerMessage(ui: EditorUi, data: string) =
     ui.log(valStr(message["level"]), valStr(message["text"]))
   of "req":
     if int(num(message["run"])) != rt.runId or not rt.running: return
+    let runId = int(num(message["run"]))
+    let reqId = message["id"]
+    let op = valStr(message["op"])
+    var args: Val = jnull
+    try: args = parseJson(valStr(message["args"]))
+    except JsonError: discard
+    proc post(reply: Val) =
+      if rt.runId == runId and not rt.worker.isNil:
+        let answer = newObj()
+        answer["t"] = jstr("reply")
+        answer["id"] = reqId
+        answer["json"] = jstr(toJson(reply))
+        rt.worker.call("postMessage", toJson(answer))
+    if op == "qnote.run":
+      if window.getStr("QOQORO_WORKSPACE_BRIDGE") == "true":
+        let parent = window.getNode("parent")
+        let requestKey = "qnote-" & $runId & "-" & str(reqId)
+        var listener, timer: int32
+        var completed = false
+        proc complete(result: Val, error = "") =
+          if completed: return
+          completed = true
+          off(listener)
+          clearTimeout(timer)
+          release(parent)
+          let reply = newObj()
+          if error.len > 0 or not result["ok"].isTrue:
+            reply["ok"] = jfalse
+            reply["error"] = jstr(if error.len > 0: error else: result.so("error", "QNote did not apply the program"))
+          else:
+            reply["ok"] = jtrue
+            reply["value"] = result
+          post(reply)
+        listener = window.on("message", proc(e: Event) =
+          if not same(e.source, parent): return
+          var response: Val
+          try: response = parseJson(e.data)
+          except JsonError: return
+          if response.eqs("type", "QOCHART_QNOTE_RESULT") and response.eqs("id", requestKey):
+            complete(response["result"], response.so("error", "")))
+        timer = setTimeout(120000, proc() = complete(nil, "The open QNote editor did not respond"))
+        let request = clone(args)
+        request["type"] = jstr("QOCHART_RUN_QNOTE")
+        request["id"] = jstr(requestKey)
+        parent.call("postMessage", toJson(request), "*")
+        return
+      # Reaches outside this app's own sandbox for the first time: a same-
+      # origin POST to the vault's automation queue, which blocks server-side
+      # until some signed-in QOQORO window (this tab's own poll loop, another
+      # tab, or the desktop app) claims and runs it, then returns the result
+      # directly -- one HTTP round trip, no separate polling here.
+      let target = valStr(args["target"])
+      let body = newObj()
+      body["path"] = jstr(target)
+      body["source"] = jstr(valStr(args["program"]))
+      body["apply"] = jbool(not args["apply"].isFalse)
+      body["save"] = jbool(not args["save"].isFalse)
+      if args["timeoutMs"].isNum: body["timeoutMs"] = args["timeoutMs"]
+      fetchPostJson("/api/program", toJson(body), proc(ok: bool, data: string) =
+        var reply = newObj()
+        if not ok:
+          reply["ok"] = jfalse
+          reply["error"] = jstr(data)
+        else:
+          try:
+            let outcome = parseJson(data)
+            # A completed job's outcome always carries its own "ok" (true or
+            # false, e.g. a failing automation script) -- that shape is a
+            # successful host reply, letting the Luau flow inspect it itself.
+            # No "ok" key at all means the request never became a job (no
+            # window claimed it, bad auth, ...): a host-level failure.
+            if not outcome["ok"].isTrue:
+              reply["ok"] = jfalse
+              reply["error"] = if outcome["error"].isStr: outcome["error"]
+                                else: jstr("qnote.run: the server did not run the program")
+            else:
+              reply["ok"] = jtrue
+              reply["value"] = outcome
+          except JsonError:
+            reply["ok"] = jfalse
+            reply["error"] = jstr("qnote.run: bad response from the server")
+        post(reply))
+      return
     var reply = newObj()
     try:
-      var args: Val = jnull
-      try: args = parseJson(valStr(message["args"]))
-      except JsonError: discard
       reply["ok"] = jtrue
-      reply["value"] = ui.scriptOp(valStr(message["op"]), args)
+      reply["value"] = ui.scriptOp(op, args)
     except ValueError as e:
       reply = newObj()
       reply["ok"] = jfalse
       reply["error"] = jstr(e.msg)
-    let answer = newObj()
-    answer["t"] = jstr("reply")
-    answer["id"] = message["id"]
-    answer["json"] = jstr(toJson(reply))
-    if not rt.worker.isNil: rt.worker.call("postMessage", toJson(answer))
+    post(reply)
   of "done":
     if int(num(message["run"])) != rt.runId: return
     ui.finishRun(message["ok"].isTrue, valStr(message["error"]))
@@ -833,7 +1296,55 @@ proc labelScriptEdges(ui: EditorUi) =
 # ---------------------------------------------------------------- examples --
 
 proc insertScriptExample(ui: EditorUi) =
-  ## A small program that shows every way to produce output.
+  ## A beginner-friendly program using the value builder.
+  let gv = ui.graph
+  let g = gv.g
+  let view = g.getViewState()
+  let ox = jsRound((num(view["scrollX"]) + num(view["width"]) / 2) / g.zoom - 390)
+  let oy = jsRound((num(view["scrollY"]) + num(view["height"]) / 2) / g.zoom - 170)
+  let before = gv.snapshot()
+  proc place(vsType: string, x, y: float64, fields: openArray[(string, string)] = [],
+             title = ""): string =
+    let (_, d) = findBlockDef(vsType)
+    let t = scriptTemplate(d)
+    t["x"] = jnum(ox + x)
+    t["y"] = jnum(oy + y)
+    if title.len > 0: t["text"] = jstr(title)
+    for (k, v) in fields: t["visualScript"].put(k, jstr(v))
+    idOf(g.addNode(t, select = false))
+  proc link(a, b: string, label = "") =
+    var sourceAnchor, targetAnchor: Val
+    for port in variablePorts(g.byId[a]):
+      if port.direction == "output":
+        sourceAnchor = clone(port.anchor)
+        break
+    for port in variablePorts(g.byId[b]):
+      if port.direction == "input":
+        targetAnchor = clone(port.anchor)
+        break
+    discard g.addEdge(obj(("sourceId", jstr(a)), ("targetId", jstr(b)), ("text", jstr(label)),
+                          ("sourceAnchor", sourceAnchor), ("targetAnchor", targetAnchor),
+                          ("lineStyle", jstr("curved"))), select = false)
+  let start = place("start", 0, 40)
+  let countMeta = """{"mode":"builder","operation":"+","expression":"(4)","parts":[{"kind":"number","value":"4"}]}"""
+  let outputExpr = "(tostring(\"This is \") .. tostring(count))"
+  let outputMeta = """{"mode":"builder","operation":"text","expression":"(tostring(\"This is \") .. tostring(count))","parts":[{"kind":"text","value":"This is "},{"kind":"variable","value":"count"}]}"""
+  let count = place("set", 0, 190, [("name", "count"), ("value", "(4)"),
+    ("__builder_value", countMeta)], "Count")
+  let show = place("output", 330, 190, [("value", outputExpr), ("mode", "block"),
+    ("__builder_value", outputMeta)], "Built output")
+  link(start, count)
+  link(count, show)
+  var ids = @[start, count, show]
+  g.setSelection(ids)
+  gv.commit(before, "Insert Script Example")
+  ui.labelScriptEdges()
+  # A phone screen is narrower than the example; show all of it.
+  if ui.layout == lmPhone: ui.run("fit")
+
+proc insertQNoteExample(ui: EditorUi) =
+  ## A small example that adds a heading and a paragraph to the QNote
+  ## document open in this workspace right now.
   let gv = ui.graph
   let g = gv.g
   let view = g.getViewState()
@@ -851,24 +1362,136 @@ proc insertScriptExample(ui: EditorUi) =
     idOf(g.addNode(t, select = false))
   proc link(a, b: string, label = "") =
     discard g.addEdge(obj(("sourceId", jstr(a)), ("targetId", jstr(b)), ("text", jstr(label)),
-                          ("lineStyle", jstr("orthogonal"))), select = false)
+                          ("sourceAnchor", clone(variablePorts(g.byId[a])[^1].anchor)),
+                          ("targetAnchor", clone(variablePorts(g.byId[b])[0].anchor)),
+                          ("lineStyle", jstr("curved"))), select = false)
   let start = place("start", 0, 40)
-  let ask = place("ask", 240, 34, [("name", "name"), ("message", "\"What is your name?\""),
-                                   ("default", "\"Luau\"")])
-  let greet = place("output", 520, 0, [("value", "\"Hello, \" .. (name or \"stranger\") .. \"!\""),
-                                       ("mode", "block")], "Greeting")
-  let code = place("luau", 240, 170, [("code", "-- Luau can read and change the diagram\n" &
-    "local shapes = doc.nodes()\nprint(\"shapes on the canvas:\", #shapes)\n" &
-    "total = 0\nfor i = 1, 10 do total += i end")], "Count")
-  let show = place("output", 540, 180, [("value", "\"1 + … + 10 = \" .. total"), ("mode", "console")],
-                   "Log it")
-  link(start, ask)
-  link(ask, greet)
-  link(start, code)
-  link(code, show)
-  var ids = @[start, ask, greet, code, show]
+  let open = place("qnoteOpen", 0, 190, [("path", "\"\"")], "The open note")
+  let heading = place("qnoteType", 300, 130,
+    [("text", "\"Hello from QGraph!\""), ("kind", "h1")])
+  let para = place("qnoteType", 300, 280,
+    [("text", "\"This paragraph was written by a QGraph script.\""), ("kind", "text")])
+  let run = place("qnoteRun", 600, 200, [("save", "true"), ("timeoutMs", "60000")], "Send it")
+  link(start, open)
+  link(open, heading)
+  link(heading, para)
+  link(para, run)
+  var ids = @[start, open, heading, para, run]
   g.setSelection(ids)
-  gv.commit(before, "Insert Script Example")
+  gv.commit(before, "Insert QNote Example")
   ui.labelScriptEdges()
-  # A phone screen is narrower than the example; show all of it.
   if ui.layout == lmPhone: ui.run("fit")
+
+# ------------------------------------------------------------------ plugins --
+#
+# Third-party blocks, described in XML, loaded at runtime with no recompile
+# (ComfyUI/Obsidian-style). Deliberately declarative-only, by design, not an
+# oversight: a plugin's <node> cannot supply Luau of its own -- it can only
+# attach its own fields/ports around one of the five fixed operations wired
+# into blockBody's generic dispatch above (each a factored-out call into the
+# exact same codegen a built-in block already uses). A downloaded plugin ZIP
+# therefore cannot do anything the fixed operation set doesn't already do.
+#
+#   <qgraphPlugin id="com.example.pack" name="My Pack" version="1.0.0">
+#     <node type="myplugin.insertQuote" label="Insert Quote" color="#8b5cf6"
+#           icon="message" width="220" height="92" description="...">
+#       <field key="text" label="Quote text" kind="expr" default="&quot;Wisdom.&quot;"/>
+#       <port name="text" type="string" direction="input"/>
+#       <operation ref="qnote.insertText">
+#         <param name="kind" value="text"/>
+#         <param name="text" field="text"/>
+#       </operation>
+#     </node>
+#   </qgraphPlugin>
+
+proc parsePluginXml(text: string): seq[(ScriptBlockDef, PluginOperation, seq[PluginFieldDef])] =
+  let root = parseXml(text)
+  if root == nil or root.localName != "qgraphPlugin": return
+  for nodeEl in root.elements:
+    if nodeEl.localName != "node": continue
+    let vsType = nodeEl.attr("type")
+    # Namespaced ("pack.block") so a plugin can never shadow a built-in
+    # block type, and never registered twice.
+    if vsType.len == 0 or '.' notin vsType or findBlockDef(vsType)[0]: continue
+    var fields: seq[PluginFieldDef]
+    var fieldDefaults: seq[(string, string)]
+    var inputPorts, outputPorts: seq[(string, string)]
+    var operation: PluginOperation
+    var hasOperation = false
+    for child in nodeEl.elements:
+      case child.localName
+      of "field":
+        let key = child.attr("key")
+        if key.len == 0: continue
+        let fkind = if child.attr("kind") == "expr": pfkExpr else: pfkText
+        let default = child.attrOr("default", "")
+        fields.add PluginFieldDef(key: key, label: child.attrOr("label", key), default: default, kind: fkind)
+        fieldDefaults.add (key, default)
+      of "port":
+        let pname = child.attr("name")
+        if pname.len == 0: continue
+        let ptype = child.attrOr("type", "any")
+        if child.attr("direction") == "output": outputPorts.add (pname, ptype)
+        else: inputPorts.add (pname, ptype)
+      of "operation":
+        let opRef = child.attr("ref")
+        if opRef.len == 0: continue
+        var params: seq[PluginParam]
+        for p in child.elements:
+          if p.localName != "param": continue
+          let pname = p.attr("name")
+          if pname.len == 0: continue
+          if p.hasAttr("field"):
+            params.add PluginParam(name: pname, kind: ppkField, text: p.attr("field"))
+          else:
+            params.add PluginParam(name: pname, kind: ppkLiteral, text: p.attrOr("value", ""))
+        operation = PluginOperation(opRef: opRef, params: params)
+        hasOperation = true
+      else: discard
+    if not hasOperation: continue  # declarative-only: no fixed op, no block
+    # The colour lands in a style attribute and the block's stroke, so only
+    # a plain #rgb/#rrggbb is accepted; sizes are clamped to sane bounds.
+    var color = nodeEl.attrOr("color", "#8b5cf6")
+    if not (color.len in [4, 7] and color[0] == '#' and color[1 .. ^1].allCharsInSet(HexDigits)):
+      color = "#8b5cf6"
+    proc dim(name, fallback: string): float64 =
+      let v = jsNumber(nodeEl.attrOr(name, fallback))
+      if v != v: jsNumber(fallback) else: clamp(v, 40.0, 1000.0)
+    let def = blockDef(vsType, nodeEl.attrOr("label", vsType), nodeEl.attrOr("description", ""),
+      color, nodeEl.attrOr("icon", "script"), dim("width", "220"), dim("height", "92"),
+      fieldDefaults, inputPorts, outputPorts)
+    result.add (def, operation, fields)
+
+proc loadPlugins(ui: EditorUi) =
+  ## GET /api/plugins -> [{id, name, version, ...}, ...], then one manifest
+  ## fetch per plugin. Silent on any failure -- no route yet (no plugin
+  ## server behind this page), a network error, bad XML: a plugin-less
+  ## QGraph must look and behave exactly as it does today, never a startup
+  ## error for something optional and possibly not even installed.
+  fetchBytes("/api/plugins?app=qochart", proc(ok: bool, data: string) =
+    if not ok: return
+    var list: Val
+    try: list = parseJson(data)
+    except JsonError: return
+    if not list.isArr or list.len == 0: return
+    var remaining = list.len
+    var added = 0
+    proc checkDone() =
+      if remaining == 0 and added > 0: ui.refreshScriptBlockPalette()
+    for entry in list:
+      let id = valStr(entry["id"])
+      if id.len == 0:
+        dec remaining
+        continue
+      fetchBytes("/api/plugins/" & id & "/manifest.xml", proc(ok2: bool, xmlText: string) =
+        if ok2:
+          try:
+            for (def, operation, fields) in parsePluginXml(xmlText):
+              scriptBlockDefs.add def
+              pluginOperations[def.vsType] = operation
+              pluginFields[def.vsType] = fields
+              inc added
+          except CatchableError: discard
+        dec remaining
+        checkDone())
+    checkDone())

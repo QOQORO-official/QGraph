@@ -149,6 +149,13 @@ proc canRedo*(g: Graph): bool = g.future.len > 0
 
 # --------------------------------------------------------------- load --
 
+proc ensureStartSocket(item: Val) =
+  if item.eqs("kind", "visualScript") and item.eqs("vsType", "start") and
+      item.nul("outputPorts"):
+    item["portsEnabled"] = jtrue
+    item["inputPorts"] = jstr("")
+    item["outputPorts"] = jstr("next:flow")
+
 proc loadItems*(g: Graph, items: Val, resetHistory = true, layers: Val = nil) =
   g.layers = if layers.isArr and layers.len > 0: clone(layers) else: defaultLayers()
   g.activeLayer = strOrEmpty(g.layers[0]["id"])
@@ -166,6 +173,7 @@ proc loadItems*(g: Graph, items: Val, resetHistory = true, layers: Val = nil) =
     setScroll(0, 0)
   g.byId = initTable[string, Val]()
   for item in g.items:
+    ensureStartSocket(item)
     discard normalizeGroups(item)
     discard normalizeHtml(item)
     if not item.tr("containerRole") and not item.eqs("type", "edge"):
@@ -276,6 +284,7 @@ proc addNode*(g: Graph, data: Val, select = true): Val =
                  ("z", jnum(g.maxZ() + 1)), ("visible", jtrue))
   assign(node, clone(if truthy(g.defaultNodeStyle): g.defaultNodeStyle else: newObj()))
   assign(node, clone(if truthy(data): data else: newObj()))
+  ensureStartSocket(node)
   if node.nul("layer"): node["layer"] = jstr(g.activeLayer)
   discard normalizeGroups(node)
   discard normalizeHtml(node)

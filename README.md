@@ -85,6 +85,19 @@ freestanding `wasm32` target against `build/inc` and `build/libc.c`, and
 `wasm-ld` links one module. `bash tools/check.sh` type-checks without
 compiling.
 
+On Windows, use `tools/build.ps1` with Nim on PATH and a matching LLVM compiler
+and WASM-capable linker. Set `QGRAPH_LLVM_BIN` and `QGRAPH_WASM_LD`, or pass
+`-LlvmBin` and `-WasmLd`. LLVM-MinGW can emit bitcode but its own linker may
+exclude the WASM backend; use a WASM linker of the same LLVM major version.
+Neither build script runs Binaryen or `wasm-opt`.
+
+The Nim entry point declares BindWeb's guard import directly, including worker
+boot. Desktop packaging uses QNote's existing native-host protection pass and
+encrypted resource bundle, without inserting imports or rewriting function
+indices. The web host supplies only the ordinary boot probe; it cannot satisfy
+the desktop package's renamed native guard. This is a reuse deterrent, not a
+guarantee against reverse engineering.
+
 ## Tests
 
 ```sh

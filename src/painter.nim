@@ -221,9 +221,6 @@ proc wrapText(ctx: Ctx, text: string, maxWidth: float64): seq[string] =
         line = test
     result.add line
 
-proc textOf(v: Val): string {.inline.} =
-  ## String(value == null ? '' : value)
-  if nullish(v): "" else: str(v)
 
 proc applyNodeFill(ctx: Ctx, node: Val, fill: string) =
   ## Solid fill unless the node carries a gradient colour and direction.
@@ -373,9 +370,93 @@ proc middleOf(points: seq[Pt]): Pt =
     m = pt((m.x + prev.x) / 2, (m.y + prev.y) / 2)
   m
 
+proc portTypeColor(dataType: string): string =
+  case dataType
+  of "float", "number", "int": "#06b6d4"
+  of "bool", "boolean": "#818cf8"
+  of "text", "string": "#eab308"
+  else: "#38bdf8"
+
+proc drawPortDot(ctx: Ctx, x, y: float64, color: string) =
+  ctx.beginPath()
+  ctx.arc(x, y, 5.5, 0, PI * 2)
+  ctx.fillStyle = "#ffffff"
+  ctx.fill()
+  ctx.strokeStyle = color
+  ctx.lineWidth = 2
+  ctx.stroke()
+
+proc namedPortColor(node, anchor: Val): (bool, string) =
+  ## The colour of the named socket an edge endpoint is plugged into, or
+  ## false when the endpoint is not a socket (an ordinary anchor/side).
+  if node == nil or anchor == nil or not node.tr("portsEnabled"): return (false, "")
+  let direction = anchor.so("portKind", "")
+  if direction notin ["input", "output"] or not anchor["portIndex"].isNum: return (false, "")
+  let entries = portLabels(node, direction)
+  let index = int(num(anchor["portIndex"]))
+  if index < 0 or index >= entries.len: return (false, "")
+  (true, portTypeColor(entries[index][1]))
+
+proc portWireColor(p: ScenePainter, edge: Val): (bool, string) =
+  ## A wire plugged into a typed socket at either end takes that type's
+  ## colour, the same convention as the socket dot itself.
+  let (sOk, sColor) = namedPortColor(lookup(p.items, edge["sourceId"]), edge["sourceAnchor"])
+  if sOk: return (true, sColor)
+  namedPortColor(lookup(p.items, edge["targetId"]), edge["targetAnchor"])
+
+proc bezierPoint(p0, c1, c2, p3: Pt, t: float64): Pt =
+  let mt = 1.0 - t
+  let a = mt * mt * mt
+  let b = 3 * mt * mt * t
+  let c = 3 * mt * t * t
+  let d = t * t * t
+  pt(a * p0.x + b * c1.x + c * c2.x + d * p3.x, a * p0.y + b * c1.y + c * c2.y + d * p3.y)
+
+proc drawMidArrow(ctx: Ctx, at, back: Pt, size: float64, color: string) =
+  let angle = arctan2(at.y - back.y, at.x - back.x)
+  ctx.save()
+  ctx.translate(at.x, at.y)
+  ctx.rotate(angle)
+  ctx.beginPath()
+  ctx.moveTo(0, 0)
+  ctx.lineTo(-size, size * 0.55)
+  ctx.lineTo(-size, -size * 0.55)
+  ctx.closePath()
+  ctx.fillStyle = color
+  ctx.fill()
+  ctx.restore()
+
+proc drawPortWire(p: ScenePainter, ctx: Ctx, edge: Val, p0, p3: Pt, color: string) =
+  ## A data connection between two named sockets: a smooth curve (the
+  ## dataflow-editor "noodle" convention) with a single arrowhead at its
+  ## midpoint showing which way the value flows -- the tip needs no arrow of
+  ## its own, since the socket dot it plugs into already marks the end.
+  let pull = jsMax(40.0, abs(p3.x - p0.x) * 0.5)
+  let c1 = pt(p0.x + pull, p0.y)
+  let c2 = pt(p3.x - pull, p3.y)
+  ctx.save()
+  ctx.globalAlpha = if edge.nul("opacity"): 1.0 else: clamp(edge.nm("opacity"), 0, 1)
+  ctx.beginPath()
+  ctx.moveTo(p0.x, p0.y)
+  ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, p3.x, p3.y)
+  ctx.strokeStyle = color
+  ctx.lineWidth = edge.fo("strokeWidth", 2)
+  ctx.lineJoin = "round"
+  ctx.lineCap = "round"
+  ctx.stroke()
+  let mid = bezierPoint(p0, c1, c2, p3, 0.5)
+  let near = bezierPoint(p0, c1, c2, p3, 0.42)
+  drawMidArrow(ctx, mid, near, edge.fo("arrowSize", 9), color)
+  ctx.restore()
+
 proc drawEdge*(p: ScenePainter, ctx: Ctx, edge: Val) =
   let points = edgePoints(edge, p.items)
   if points.len < 2: return
+  block:
+    let (hasPortColor, portColor) = p.portWireColor(edge)
+    if hasPortColor:
+      p.drawPortWire(ctx, edge, points[0], points[^1], portColor)
+      return
   let circular = if edge.eqs("lineStyle", "circular"): circularArc(edge, p.items) else: CircArc()
   let paintPoints = if circular.valid: circular.samples else: points
   var strokePoints = paintPoints
@@ -405,7 +486,10 @@ proc drawEdge*(p: ScenePainter, ctx: Ctx, edge: Val) =
     ctx.lineTo(points[^1].x, points[^1].y)
   else:
     for j in 1 ..< strokePoints.len: ctx.lineTo(strokePoints[j].x, strokePoints[j].y)
-  let color = edge.so("stroke", "#4f5968")
+  var color = edge.so("stroke", "#4f5968")
+  block:
+    let (hasPortColor, portColor) = p.portWireColor(edge)
+    if hasPortColor: color = portColor
   ctx.strokeStyle = color
   ctx.lineWidth = edge.fo("strokeWidth", 2)
   ctx.lineJoin = "round"
@@ -1286,10 +1370,6 @@ proc drawTaskList(p: ScenePainter, ctx: Ctx, node: Val) =
 
 const scriptMono = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 
-proc scriptField(node: Val, key: string): string =
-  let vs = node["visualScript"]
-  if vs != nil and vs.isObj and not nullish(vs.get(key)): str(vs.get(key)) else: ""
-
 proc ellipsize(ctx: Ctx, text: string, maxWidth: float64): string =
   if maxWidth <= 0: return ""
   if ctx.measureText(text) <= maxWidth: return text
@@ -1299,52 +1379,6 @@ proc ellipsize(ctx: Ctx, text: string, maxWidth: float64): string =
     while result.len > 0 and (ord(result[^1]) and 0xC0) == 0x80: result.setLen(result.len - 1)
     if result.len > 0 and ord(result[^1]) >= 0xC0: result.setLen(result.len - 1)
   result &= "…"
-
-proc orDash(s: string): string = (if s.strip.len == 0: "…" else: s.strip)
-
-proc scriptRows*(node: Val): seq[(string, string)] =
-  ## What a script block shows under its title: (caption, value) rows; an
-  ## empty caption marks a code line.
-  let f = proc(k: string): string = scriptField(node, k)
-  case node.so("vsType", "")
-  of "start": result.add ("", "▶ when Run is pressed")
-  of "luau", "function", "process":
-    let code = f("code")
-    if code.strip.len == 0: result.add ("", "-- Luau code")
-    for line in code.split('\n'): result.add ("", line)
-  of "set": result.add ("", orDash(f("name")) & " = " & orDash(f("value")))
-  of "condition":
-    result.add ("", "if " & orDash(f("test")))
-    result.add ("then", "true ▸   else ▸ false")
-  of "for":
-    let step = f("step").strip
-    result.add ("", "for " & orDash(f("iterator")) & " = " & orDash(f("from")) & ", " &
-      orDash(f("to")) & (if step.len > 0 and step != "1": ", " & step else: ""))
-    result.add ("edges", "loop ▸   done ▸")
-  of "while":
-    result.add ("", "while " & orDash(f("condition")))
-    let limit = f("max").strip
-    result.add ("max", if limit.len == 0 or limit == "0": "no limit" else: limit & " times")
-  of "output":
-    result.add ("", orDash(f("value")))
-    let mode = f("mode")
-    result.add ("show", if mode == "console": "in the console"
-                        elif mode == "alert": "as a browser alert"
-                        else: "on this block")
-  of "ask":
-    result.add ("", orDash(f("name")) & " = prompt(" & orDash(f("message")) & ")")
-  of "delay": result.add ("", "wait(" & orDash(f("seconds")) & ")")
-  of "shape":
-    result.add ("shape", orDash(f("target")))
-    result.add ("", orDash(f("property")) & " = " & orDash(f("value")))
-  else:
-    let rows = node["visualRows"]
-    if rows != nil and rows.isArr:
-      for row in rows:
-        if row.isArr and row.len >= 2: result.add (textOf(row[0]), textOf(row[1]))
-    let summary = node["visualSummary"]
-    if summary != nil and summary.isArr and summary.len >= 2:
-      result.add ("", textOf(summary[1]))
 
 proc drawVisualScript(p: ScenePainter, ctx: Ctx, node: Val) =
   ## A script block: a coloured title bar, what the block does, and the
@@ -1382,6 +1416,15 @@ proc drawVisualScript(p: ScenePainter, ctx: Ctx, node: Val) =
   # Output of the last run, pinned to the bottom.
   let error = scriptField(node, "lastError")
   let output = scriptField(node, "lastResult")
+  if error.len > 0 or output.len > 0:
+    # A ring on the block itself, not just its output box, so the last run's
+    # outcome reads at a glance even when the block is small or zoomed out.
+    ctx.save()
+    p.traceNode(ctx, node)
+    ctx.lineWidth = 2.5
+    ctx.strokeStyle = if error.len > 0: "#ef4444" else: "#22c55e"
+    ctx.stroke()
+    ctx.restore()
   var bodyBottom = y + h - 6
   if error.len > 0 or output.len > 0:
     let isError = error.len > 0
@@ -1418,6 +1461,20 @@ proc drawVisualScript(p: ScenePainter, ctx: Ctx, node: Val) =
       ctx.fillStyle = "#1e293b"
       ctx.fillText(ellipsize(ctx, value, w - 18), x + 9, rowY)
     rowY += 15
+  if node.tr("portsEnabled"):
+    # Each socket sits beside the row that already shows its variable (the
+    # caption/value text above), rather than at a generic, content-blind
+    # position -- see geometry.nim's portYFraction, the single place both
+    # this drawing and the click/drag hit-testing agree on where a socket is.
+    # A two-way field's input and output variants share one point (see
+    # portXFraction) -- draw it once, not twice.
+    var drawnKeys: HashSet[string]
+    for port in variablePorts(node):
+      if drawnKeys.containsOrIncl(scriptPortKey(node, port.name)): continue
+      let entries = portLabels(node, port.direction)
+      let px = x + portXFraction(node, port.direction, port.index, entries) * w
+      let py = y + portYFraction(node, port.direction, port.index, entries) * h
+      drawPortDot(ctx, px, py, "#64748b")
   ctx.restore()
 
 proc drawNode*(p: ScenePainter, ctx: Ctx, node: Val) =
@@ -1482,27 +1539,18 @@ proc drawNode*(p: ScenePainter, ctx: Ctx, node: Val) =
   elif node.eqs("kind", "visualScript"): p.drawVisualScript(ctx, node)
   elif node.eqs("shape", "table"): p.drawTableCells(ctx, node)
   else: p.drawNodeText(ctx, node)
-  if node.tr("portsEnabled"):
+  if node.tr("portsEnabled") and not node.eqs("kind", "visualScript"):
+    # Script blocks draw their own sockets, glued to the row that shows the
+    # variable (see drawVisualScript) -- this generic even-spaced layout with
+    # a floating name label is for a plain shape with ports turned on from
+    # the Style inspector, which has no such rows to align to.
     ctx.font = "11px Arial, sans-serif"
     ctx.textBaseline = "middle"
     for port in variablePorts(node):
-      let color = case port.dataType
-        of "float", "number", "int": "#06b6d4"
-        of "bool", "boolean": "#818cf8"
-        of "text", "string": "#eab308"
-        else: "#38bdf8"
-      # The node's transform is already active. Use its local boundary point;
-      # the painter applies rotation and flipping with the shape.
-      let x = if port.direction == "input": nodeX(node) else: nodeX(node) + nodeW(node)
-      let y = nodeY(node) + float64(port.index + 1) /
-        float64(portLabels(node, port.direction).len + 1) * nodeH(node)
-      ctx.beginPath()
-      ctx.arc(x, y, 5.5, 0, PI * 2)
-      ctx.fillStyle = "#ffffff"
-      ctx.fill()
-      ctx.strokeStyle = color
-      ctx.lineWidth = 2
-      ctx.stroke()
+      let entries = portLabels(node, port.direction)
+      let x = nodeX(node) + portXFraction(node, port.direction, port.index, entries) * nodeW(node)
+      let y = nodeY(node) + portYFraction(node, port.direction, port.index, entries) * nodeH(node)
+      drawPortDot(ctx, x, y, portTypeColor(port.dataType))
       ctx.fillStyle = node.so("textColor", "#172033")
       ctx.textAlign = if port.direction == "input": "left" else: "right"
       ctx.fillText(port.name, x + (if port.direction == "input": 12.0 else: -12.0), y)

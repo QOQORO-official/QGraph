@@ -1156,7 +1156,7 @@ proc pointerDown*(g: Graph, ev: PointerEv): int =
       if selectionGroup.len > 0 and movableGroup:
         g.action = g.startMoveAction(world, before)
       elif selectionHit.eqs("type", "edge") and not selectionHit.tr("locked") and
-          not selectionHit["movable"].isFalse:
+          not selectionHit["movable"].isFalse and not isSocketWire(selectionHit):
         g.action = g.startEdgeMoveAction(selectionHit, world, before)
       elif not selectionHit.eqs("type", "edge") and not selectionHit.tr("locked") and
           not selectionHit["movable"].isFalse:
